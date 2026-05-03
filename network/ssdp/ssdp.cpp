@@ -3,6 +3,7 @@
 
 SsdpClient::SsdpClient()
 {
+    
 }
 
 SsdpClient::~SsdpClient()
