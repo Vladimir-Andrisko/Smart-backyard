@@ -12,26 +12,28 @@ sudo apt install libmosquitto-dev mosquitto
 
 ---
 
-## 2. Compile
-
-For C:
+## 2. Run broker
 
 ```
-gcc example.c -o example -lmosquitto
-```
-
-For C++:
-
-```
-g++ example.cpp -o example -lmosquitto
+mosquitto
 ```
 
 ---
 
-## 3. Run broker
+## 3. Test Compile
+
+NOTE: This is a test compile, in the future a cmake will handle this. There is no need to run mqtt broker mosquitto.
+
+Controler:
 
 ```
-mosquitto
+g++ backend/controler.cpp network/ssdp/SSDPController.cpp -I. -o controler -pthread
+```
+
+Sensor:
+
+```
+g++ devices/row_node/src/sensor_node.cpp network/ssdp/SSDPController.cpp -I. -o sensor -pthread
 ```
 
 ---
