@@ -4,16 +4,22 @@
 using namespace std;
 
 int main(){
-    SSDPDevice ssdp("1", "gas", "/negde");
+    SSDPDevice *ssdp = nullptr;
 
-    ssdp.start();
-    cout << "Zapoceo ssdp\n";
-    while(true){
-        getchar();
-        break;
+    try{
+        ssdp = new SSDPDevice("1", "gas", "/negde");
+    }catch(const std::exception &e){
+        cerr << e.what() << endl;
+        return 1;
     }
 
+    ssdp->start();
+    cout << "Zapoceo ssdp\n";
+    
+    getchar();
+
+    ssdp->stop();
     cout << "Zavrsio ssdp\n";
-    ssdp.stop();
+    delete ssdp;
     return 0;
 }

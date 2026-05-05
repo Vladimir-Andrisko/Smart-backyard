@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <atomic>
 
-static constexpr int NOTIFY_TIMEOUT = 10;
+static constexpr int NOTIFY_TIMEOUT = 15;
 static constexpr int SOCKET_TIMEOUT = 1;
 
 class SSDPDevice

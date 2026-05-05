@@ -4,18 +4,23 @@
 using namespace std;
 
 int main(){
-    SSDPController ssdp;
+    SSDPController *ssdp = nullptr;
 
-    ssdp.start();
-    cout << "Zapoceo ssdp\n";
-
-    while(true){
-        getchar();
-        break;
+    try{
+        ssdp = new SSDPController(false);
+    }catch(const std::exception &e){
+        cerr << e.what() << endl;
+        return 1;
     }
 
-    ssdp.stop();
+    ssdp->start();
+    cout << "Zapoceo ssdp\n";
+    
+    getchar();
+
+    ssdp->stop();
     cout << "Zavrsio ssdp\n";
+    delete ssdp;
 
     return 0;
 }

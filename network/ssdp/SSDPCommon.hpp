@@ -13,7 +13,7 @@ namespace SSDP{
         return
             "NOTIFY * HTTP/1.1\r\n"
             "HOST: 239.255.255.250:1900\r\n"
-            "CACHE-CONTROL: max-age=1800\r\n"
+            "CACHE-CONTROL: max-age=10\r\n"
             "NT: " + deviceType + "\r\n"
             "NTS: ssdp:alive\r\n"
             "USN: uuid:" + uuid + "::" + deviceType + "\r\n"
@@ -38,7 +38,7 @@ namespace SSDP{
             "M-SEARCH * HTTP/1.1\r\n"
             "HOST: 239.255.255.250:1900\r\n"
             "MAN: ssdp:discover\r\n"
-            "MX: 1\r\n"
+            "MX: 69\r\n"
             "ST: ssdp:all\r\n"
             "\r\n";
     }
@@ -47,7 +47,7 @@ namespace SSDP{
     {
         return
             "HTTP/1.1 200 OK\r\n"
-            "CACHE-CONTROL: max-age=1800\r\n"
+            "CACHE-CONTROL: max-age=10\r\n"
             "EXT:\r\n"
             "LOCATION: " + location + "\r\n"
             "ST: " + deviceType + "\r\n"

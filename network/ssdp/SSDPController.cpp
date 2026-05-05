@@ -4,13 +4,21 @@
 #include <chrono>
 #include <vector>
 
-SSDPController::SSDPController(){
+SSDPController::SSDPController(bool debug){
+    debug_ = debug;
+    m_searchMsg = SSDP::buildMSearch();
     setupSocket();
 }
 
 SSDPController::~SSDPController(){
     stop();
     if(socket_fd_ >= 0) close(socket_fd_);
+}
+
+void SSDPController::safeCout(const std::string &msg){
+    std::unique_lock<std::mutex> ul(cout_mx);
+    if(debug_)
+        std::cout << msg;
 }
 
 void SSDPController::updateDevice(const Device &dev){
@@ -45,7 +53,7 @@ void SSDPController::removeExperiedDevices(){
     }
 
     for(const auto& dev : expired){
-        std::cout << "[WARN] Device expired: " << dev.uuid << "\n";
+        safeCout("[WARN] Device expired: " + dev.uuid + "\n");
         sendControllerNotify(dev);
     }
 }
@@ -64,7 +72,7 @@ void SSDPController::setupSocket(){
     }
 
     struct timeval tv{};
-    tv.tv_sec = 1;
+    tv.tv_sec = SOCKET_TIMEOUT;
     if(setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0){
         close(socket_fd_);
         throw std::runtime_error("Failed at setsockopt()\n");
@@ -105,9 +113,9 @@ void SSDPController::sendControllerNotify(const Device &dev) {
 
     if (sendto(socket_fd_, msg.c_str(), msg.size(), 0, (sockaddr*)&multicastAddr, sizeof(multicastAddr)) < 0)
     {
-        std::cerr << "[WARN] Controller NOTIFY send failed for: " << dev.uuid << "\n";
+        safeCout("[WARN] Controller NOTIFY send failed for: " + dev.uuid + "\n");
     } else {
-        std::cout << "[INFO] Controller sent BYEBYE for: " << dev.uuid << "\n";
+        safeCout("[INFO] Controller sent BYEBYE for: " + dev.uuid + "\n");
     }
 }
 
@@ -116,6 +124,7 @@ void SSDPController::start(){
 
     listenerThread = std::thread(&SSDPController::listenLoop, this);
     cleanupThread = std::thread(&SSDPController::cleanupLoop, this);
+    searchThread = std::thread(&SSDPController::searchLoop, this);
 }
 
 void SSDPController::stop(){
@@ -125,6 +134,7 @@ void SSDPController::stop(){
 
     if (listenerThread.joinable()) listenerThread.join();
     if (cleanupThread.joinable()) cleanupThread.join();
+    if (searchThread.joinable()) searchThread.join();
 }
 
 void SSDPController::listenLoop(){
@@ -146,10 +156,11 @@ void SSDPController::listenLoop(){
 
         if (msg.find("ssdp:byebye") != std::string::npos) {
             removeDevice(dev.uuid);
-            std::cout << "[INFO] Device BYEBYE: " << dev.uuid << "\n";
+            safeCout("[INFO] Device BYEBYE: " + dev.uuid + "\n");
         }else{
             dev.lastSeen = std::chrono::steady_clock::now();
             updateDevice(dev);
+            safeCout("[INFO] Device updated: " + dev.uuid + "\n");
         }
     }
 
@@ -158,7 +169,18 @@ void SSDPController::listenLoop(){
 void SSDPController::cleanupLoop(){
     while(running){
         removeExperiedDevices();
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::seconds(EXPIRE_TIMEOUT));
+    }
+}
+
+void SSDPController::searchLoop(){
+    while(running){
+        if (sendto(socket_fd_, m_searchMsg.c_str(), m_searchMsg.size(), 0, (sockaddr*)&multicastAddr, sizeof(multicastAddr)) < 0){
+            safeCout("[WARN] Controller SEARCH failed!\n");
+        } else {
+            safeCout("[INFO] Controller sent M-SEARCH\n");
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(SEARCH_TIMEOUT));
     }
 }
 
@@ -180,6 +202,9 @@ Device SSDPController::parseMessage(const std::string &msg){
     dev.st = find("ST: ");
 
     std::string temp = find("CACHE-CONTROL: max-age=");
+
+    std::string debug = "Parsed msg from device: \nUUID: " + dev.uuid + "\nLOCATION: " + dev.location + "\nST: " + dev.st + "\nMAX-AGE: " + temp + "\n\n";
+    safeCout(debug);
 
     if(temp.empty()){
         dev.maxAge = 10;

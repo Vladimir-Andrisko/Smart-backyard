@@ -19,6 +19,10 @@ struct Device{
     int maxAge;
 };
 
+static constexpr int SOCKET_TIMEOUT = 1;
+static constexpr int SEARCH_TIMEOUT = 30;
+static constexpr int EXPIRE_TIMEOUT = 10; 
+
 class SSDPController
 {
 private:
@@ -26,11 +30,18 @@ private:
     int socket_fd_;
     sockaddr_in multicastAddr{};
 
+    std::string m_searchMsg;
+
     std::atomic<bool> running;
 
     std::thread listenerThread;
     std::thread cleanupThread;
+    std::thread searchThread;
+
     std::mutex mx;
+    std::mutex cout_mx;
+
+    bool debug_;
 
     Device parseMessage(const std::string &msg);
     void sendControllerNotify(const Device &dev);
@@ -38,9 +49,11 @@ private:
     void setupSocket();
     void listenLoop();
     void cleanupLoop();
+    void searchLoop();
+    void safeCout(const std::string &msg);
 
 public:
-    SSDPController();
+    SSDPController(bool debug);
     ~SSDPController();
 
     void updateDevice(const Device &dev);
