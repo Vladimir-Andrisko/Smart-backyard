@@ -19,6 +19,17 @@ target_include_directories(ssdp PUBLIC
 )
 
 # ========================
+# JSON LIBRARY
+# ========================
+add_library(json
+    json/json.cpp
+)
+
+target_include_directories(json PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/json
+)
+
+# ========================
 # CONTROLLER EXECUTABLE
 # ========================
 add_executable(controller
@@ -38,4 +49,5 @@ add_executable(sensor
 
 target_link_libraries(sensor
     ssdp
+    json
 )
