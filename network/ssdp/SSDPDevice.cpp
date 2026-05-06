@@ -1,12 +1,36 @@
 #include "SSDPDevice.hpp"
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include "json/json.hpp"
 
-SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location)
+void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, const std::string& location)
 {
     alive_msg = SSDP::buildNotifyAlive(uuid, location, deviceType);
     byebye_msg = SSDP::buildNotifyByebye(uuid, deviceType);
     response_msg = SSDP::buildResponse(uuid, location, deviceType);
     setupSocket();
+}
+
+SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location)
+{
+    init(uuid, deviceType, location);
+}
+
+SSDPDevice::SSDPDevice(const std::string& jsonFile)
+{
+    try{
+        std::ifstream file(jsonFile);
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        std::string content = buffer.str();
+        json::jobject obj = json::jobject::parse(content.c_str());
+        init(obj["uuid"], obj["deviceType"], obj["location"]);
+
+    }catch(const std::exception &e){
+        std::cerr << e.what() << std::endl;
+        init("err", "err", "err");
+    }
 }
 
 SSDPDevice::~SSDPDevice()

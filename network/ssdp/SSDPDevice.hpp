@@ -17,6 +17,7 @@ static constexpr int SOCKET_TIMEOUT = 1;
 class SSDPDevice
 {
 private:
+    void init(const std::string& uuid, const std::string& deviceType, const std::string& location);
     void setupSocket();
 
     void listenLoop();
@@ -40,6 +41,7 @@ private:
     
 public:
     SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location);
+    SSDPDevice(const std::string& jsonFile);
     ~SSDPDevice();
 
     void start();

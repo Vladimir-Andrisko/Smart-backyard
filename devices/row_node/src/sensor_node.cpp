@@ -3,11 +3,14 @@
 
 using namespace std;
 
-int main(){
+int main(int argc, char* argv[]){
     SSDPDevice *ssdp = nullptr;
 
     try{
-        ssdp = new SSDPDevice("1", "gas", "/negde");
+        if (argc >= 2)
+            ssdp = new SSDPDevice(argv[1]);
+        else
+            ssdp = new SSDPDevice("1", "gas", "/negde");
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
