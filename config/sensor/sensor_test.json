@@ -1,5 +1,7 @@
 {
-    "uuid": "1",
-    "deviceType": "test sensor",
-    "location": "/somewhere"
+	"uuid": "1",
+	"deviceType": "test sensor",
+	"Service": {
+		"State": "OFF"
+	}
 }

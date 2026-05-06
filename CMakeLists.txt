@@ -7,6 +7,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 # ========================
+# JSON LIBRARY
+# ========================
+add_library(json
+    json/json.cpp
+)
+
+target_include_directories(json PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/json
+)
+
+# ========================
 # SSDP LIBRARY
 # ========================
 add_library(ssdp
@@ -18,16 +29,8 @@ target_include_directories(ssdp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# ========================
-# JSON LIBRARY
-# ========================
-add_library(json
-    json/json.cpp
-)
-
-target_include_directories(json PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/json
-)
+# IMPORTANT: ssdp depends on json
+target_link_libraries(ssdp PUBLIC json)
 
 # ========================
 # CONTROLLER EXECUTABLE
@@ -49,5 +52,4 @@ add_executable(sensor
 
 target_link_libraries(sensor
     ssdp
-    json
 )

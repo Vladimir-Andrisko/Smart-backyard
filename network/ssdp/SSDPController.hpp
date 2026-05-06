@@ -9,6 +9,7 @@
 #include <map>
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 
 struct Device{
     std::string uuid;
@@ -56,7 +57,7 @@ public:
     SSDPController(bool debug);
     ~SSDPController();
 
-    void updateDevice(const Device &dev);
+    void updateDevice(Device &dev);
     void removeDevice(const std::string &uuid);
     void removeExperiedDevices();
 

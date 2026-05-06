@@ -2,10 +2,15 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <mutex>
 #include "json/json.hpp"
+
 
 void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, const std::string& location)
 {
+    this->uuid = uuid;
+    this->deviceType = deviceType;
+    this->location = location;
     alive_msg = SSDP::buildNotifyAlive(uuid, location, deviceType);
     byebye_msg = SSDP::buildNotifyByebye(uuid, deviceType);
     response_msg = SSDP::buildResponse(uuid, location, deviceType);
@@ -17,15 +22,16 @@ SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, c
     init(uuid, deviceType, location);
 }
 
-SSDPDevice::SSDPDevice(const std::string& jsonFile)
+SSDPDevice::SSDPDevice(const std::string& location)
 {
     try{
-        std::ifstream file(jsonFile);
+        std::ifstream file(location);
         std::stringstream buffer;
         buffer << file.rdbuf();
         std::string content = buffer.str();
         json::jobject obj = json::jobject::parse(content.c_str());
-        init(obj["uuid"], obj["deviceType"], obj["location"]);
+
+        init(obj["uuid"], obj["deviceType"], location);
 
     }catch(const std::exception &e){
         std::cerr << e.what() << std::endl;
@@ -135,6 +141,9 @@ void SSDPDevice::start() {
 
     listenerThread = std::thread(&SSDPDevice::listenLoop, this);
     aliveThread = std::thread(&SSDPDevice::aliveLoop, this);
+
+    state = "ON";
+    writeToJSON();
 }
 
 void SSDPDevice::stop() {
@@ -144,7 +153,42 @@ void SSDPDevice::stop() {
 
     sendNotifyByebye();
 
+    state = "OFF";
+    writeToJSON();
+
     if (listenerThread.joinable()) listenerThread.join();
     if (aliveThread.joinable()) aliveThread.join();
 }
 
+void SSDPDevice::writeToJSON(void)
+{
+    std::mutex *mtx;
+
+    {
+        std::lock_guard<std::mutex> lock(mapMutex);
+        mtx = &fileMutexes[location];
+    }
+
+    std::lock_guard<std::mutex> lock(*mtx);
+
+    try
+    {
+        std::ifstream file(location);
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        file.close();
+
+        json::jobject obj = json::jobject::parse(buffer.str().c_str());
+        json::jobject service = json::jobject::parse(obj["Service"].as_string().c_str());
+        service["State"] = state;
+        obj["Service"] = service;
+
+        std::ofstream outputFile(location);
+        outputFile << obj.pretty();
+    }
+    catch(const std::exception &e)
+    {
+        std::cerr << "Failed to write to JSON: " << e.what() << std::endl;
+        std::cerr << "Location: " << location << std::endl;
+    }
+}

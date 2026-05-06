@@ -1,10 +1,27 @@
 #include "network/ssdp/SSDPDevice.hpp"
 #include <iostream>
+#include <csignal>
 
 using namespace std;
 
+SSDPDevice* ssdp = nullptr;
+
+void handleSignal(int)
+{
+    std::cout << "Zaustavlja se SSDP\n";
+
+    if (ssdp)
+    {
+        delete ssdp;
+        ssdp = nullptr;
+    }
+
+    std::exit(0);
+}
+
 int main(int argc, char* argv[]){
-    SSDPDevice *ssdp = nullptr;
+
+    std::signal(SIGINT, handleSignal);
 
     try{
         if (argc >= 2)

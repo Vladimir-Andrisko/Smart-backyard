@@ -1,8 +1,11 @@
 #include "SSDPController.hpp"
 #include "SSDPCommon.hpp"
+#include "json/json.hpp"
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <fstream>
+#include <sstream>
 
 SSDPController::SSDPController(bool debug){
     debug_ = debug;
@@ -21,13 +24,15 @@ void SSDPController::safeCout(const std::string &msg){
         std::cout << msg;
 }
 
-void SSDPController::updateDevice(const Device &dev){
+void SSDPController::updateDevice(Device &dev){
     std::unique_lock<std::mutex> ul(mx);
     device_dict[dev.uuid] = dev;
 }
 
 void SSDPController::removeDevice(const std::string &uuid){
     std::unique_lock<std::mutex> ul(mx);
+    std::string location = device_dict[uuid].location;
+
     device_dict.erase(uuid);
 }
 
