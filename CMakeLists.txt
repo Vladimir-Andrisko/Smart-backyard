@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
+
 project(SmartBackyard)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -18,6 +19,16 @@ target_include_directories(json PUBLIC
 )
 
 # ========================
+# HTTPSERVER LIBRARY
+# Header-only library
+# ========================
+add_library(httpserver INTERFACE)
+
+target_include_directories(httpserver INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/httpserver
+)
+
+# ========================
 # SSDP LIBRARY
 # ========================
 add_library(ssdp
@@ -29,8 +40,11 @@ target_include_directories(ssdp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# IMPORTANT: ssdp depends on json
-target_link_libraries(ssdp PUBLIC json)
+# ssdp depends on json + httpserver
+target_link_libraries(ssdp PUBLIC
+    json
+    httpserver
+)
 
 # ========================
 # CONTROLLER EXECUTABLE
