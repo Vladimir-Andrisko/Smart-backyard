@@ -1,6 +1,7 @@
 #include "SSDPController.hpp"
 #include "SSDPCommon.hpp"
 #include "json/json.hpp"
+#include "../httpserver/httpserver.hpp"
 #include <iostream>
 #include <chrono>
 #include <vector>
@@ -26,40 +27,46 @@ void SSDPController::safeCout(const std::string &msg){
 
 void SSDPController::updateDevice(Device &dev){
     std::unique_lock<std::mutex> ul(mx);
+    dev.alive = true;
     device_dict[dev.uuid] = dev;
+    HTTPServer::writeDeviceServiceVariable(dev.location, "State", "ON");
 }
 
 void SSDPController::removeDevice(const std::string &uuid){
     std::unique_lock<std::mutex> ul(mx);
     std::string location = device_dict[uuid].location;
-
+    HTTPServer::writeDeviceServiceVariable(location, "State", "OFF");
+    device_reconnect_cooldowns[uuid] = std::chrono::steady_clock::now() + std::chrono::seconds(RECONNECT_COOLDOWN);
     device_dict.erase(uuid);
 }
 
-void SSDPController::removeExperiedDevices(){
-    std::vector<Device> expired;
-    auto now = std::chrono::steady_clock::now();
-
+void SSDPController::livenessCheckLoop()
+{
+    while(running)
     {
-        std::lock_guard<std::mutex> lock(mx);
+        auto now = std::chrono::steady_clock::now();
 
-        for(auto it = device_dict.begin(); it != device_dict.end();){
-            auto time = std::chrono::duration_cast<std::chrono::seconds>(
-            now - it->second.lastSeen).count();
+        {
+            std::lock_guard<std::mutex> lock(mx);
 
-            if(time >= it->second.maxAge + 2){
-                Device dev = it->second;
-                expired.push_back(dev);
-                it = device_dict.erase(it);
-            }else{
-                ++it;
+            for (auto it = device_dict.begin(); it != device_dict.end(); ++it)
+            {
+                Device &dev = it->second;
+                if (!dev.alive)
+                    continue;
+
+                auto age = std::chrono::duration_cast<std::chrono::seconds>(now - dev.lastSeen).count();
+
+                if (age > dev.maxAge + 2)
+                {
+                    dev.alive = false;
+                    HTTPServer::writeDeviceServiceVariable(dev.location, "State", "UNREACHABLE");
+                    safeCout("[WARN] Device expired: " + dev.uuid + "\n");
+                }
             }
         }
-    }
 
-    for(const auto& dev : expired){
-        safeCout("[WARN] Device expired: " + dev.uuid + "\n");
-        sendControllerNotify(dev);
+        std::this_thread::sleep_for(std::chrono::seconds(EXPIRE_TIMEOUT));
     }
 }
 
@@ -128,7 +135,7 @@ void SSDPController::start(){
     running = true;
 
     listenerThread = std::thread(&SSDPController::listenLoop, this);
-    cleanupThread = std::thread(&SSDPController::cleanupLoop, this);
+    livenessCheckThread = std::thread(&SSDPController::livenessCheckLoop, this);
     searchThread = std::thread(&SSDPController::searchLoop, this);
 }
 
@@ -138,8 +145,19 @@ void SSDPController::stop(){
     running = false;
 
     if (listenerThread.joinable()) listenerThread.join();
-    if (cleanupThread.joinable()) cleanupThread.join();
+    if (livenessCheckThread.joinable()) livenessCheckThread.join();
     if (searchThread.joinable()) searchThread.join();
+
+    std::lock_guard<std::mutex> lock(mx);
+
+    std::vector<std::string> uuids;
+    uuids.reserve(device_dict.size());
+
+    for (auto& [uuid, dev] : device_dict)
+        uuids.push_back(uuid);
+
+    for (auto& uuid : uuids)
+        removeDevice(uuid);
 }
 
 void SSDPController::listenLoop(){
@@ -163,19 +181,24 @@ void SSDPController::listenLoop(){
             removeDevice(dev.uuid);
             safeCout("[INFO] Device BYEBYE: " + dev.uuid + "\n");
         }else{
+            auto it = device_reconnect_cooldowns.find(dev.uuid);
+            bool cooldown = (it != device_reconnect_cooldowns.end()) &&
+                            (it->second >= std::chrono::steady_clock::now());
+
+
             dev.lastSeen = std::chrono::steady_clock::now();
-            updateDevice(dev);
-            safeCout("[INFO] Device updated: " + dev.uuid + "\n");
+            if (!cooldown)
+            {
+                updateDevice(dev);
+                safeCout("[INFO] Device updated: " + dev.uuid + "\n");
+            }
+            else
+                safeCout("[INFO] Message from " + dev.uuid + " rejected due to cooldown.\n");
         }
-    }
 
-}
-
-void SSDPController::cleanupLoop(){
-    while(running){
-        removeExperiedDevices();
         std::this_thread::sleep_for(std::chrono::seconds(EXPIRE_TIMEOUT));
     }
+
 }
 
 void SSDPController::searchLoop(){

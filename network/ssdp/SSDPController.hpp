@@ -15,6 +15,7 @@ struct Device{
     std::string uuid;
     std::string location;
     std::string st;
+    bool alive;
 
     std::chrono::steady_clock::time_point lastSeen;
     int maxAge;
@@ -22,12 +23,15 @@ struct Device{
 
 static constexpr int SOCKET_TIMEOUT = 1;
 static constexpr int SEARCH_TIMEOUT = 30;
-static constexpr int EXPIRE_TIMEOUT = 10; 
+static constexpr int EXPIRE_TIMEOUT = 1; 
+static constexpr int RECONNECT_COOLDOWN = 60;
 
 class SSDPController
 {
 private:
     std::map<std::string, Device> device_dict;
+    // used to ignore stale packets from disconnecting devices
+    std::map<std::string, std::chrono::steady_clock::time_point> device_reconnect_cooldowns;
     int socket_fd_;
     sockaddr_in multicastAddr{};
 
@@ -36,7 +40,7 @@ private:
     std::atomic<bool> running;
 
     std::thread listenerThread;
-    std::thread cleanupThread;
+    std::thread livenessCheckThread;
     std::thread searchThread;
 
     std::mutex mx;
@@ -49,7 +53,7 @@ private:
 
     void setupSocket();
     void listenLoop();
-    void cleanupLoop();
+    void livenessCheckLoop();
     void searchLoop();
     void safeCout(const std::string &msg);
 
@@ -59,7 +63,6 @@ public:
 
     void updateDevice(Device &dev);
     void removeDevice(const std::string &uuid);
-    void removeExperiedDevices();
 
     void start();
     void stop();

@@ -21,7 +21,7 @@ void handleSignal(int)
 
 int main(int argc, char* argv[]){
 
-    std::signal(SIGINT, handleSignal);
+    //std::signal(SIGINT, handleSignal);
 
     try{
         if (argc >= 2)

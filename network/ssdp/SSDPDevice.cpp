@@ -141,9 +141,6 @@ void SSDPDevice::start() {
 
     listenerThread = std::thread(&SSDPDevice::listenLoop, this);
     aliveThread = std::thread(&SSDPDevice::aliveLoop, this);
-
-    state = "ON";
-    writeToJSON();
 }
 
 void SSDPDevice::stop() {
@@ -153,42 +150,6 @@ void SSDPDevice::stop() {
 
     sendNotifyByebye();
 
-    state = "OFF";
-    writeToJSON();
-
     if (listenerThread.joinable()) listenerThread.join();
     if (aliveThread.joinable()) aliveThread.join();
-}
-
-void SSDPDevice::writeToJSON(void)
-{
-    std::mutex *mtx;
-
-    {
-        std::lock_guard<std::mutex> lock(mapMutex);
-        mtx = &fileMutexes[location];
-    }
-
-    std::lock_guard<std::mutex> lock(*mtx);
-
-    try
-    {
-        std::ifstream file(location);
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        file.close();
-
-        json::jobject obj = json::jobject::parse(buffer.str().c_str());
-        json::jobject service = json::jobject::parse(obj["Service"].as_string().c_str());
-        service["State"] = state;
-        obj["Service"] = service;
-
-        std::ofstream outputFile(location);
-        outputFile << obj.pretty();
-    }
-    catch(const std::exception &e)
-    {
-        std::cerr << "Failed to write to JSON: " << e.what() << std::endl;
-        std::cerr << "Location: " << location << std::endl;
-    }
 }
