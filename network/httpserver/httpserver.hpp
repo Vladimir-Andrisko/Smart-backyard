@@ -6,21 +6,27 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <memory>
 #include "json/json.hpp"
 
 // Proxy namespace that functions as a stand-in for a HTTP server
 namespace HTTPServer
 {
-    #define DEVICE_SERVICE_SUBTREE "Service"
-    std::mutex mapMutex;
-    std::unordered_map<std::string, std::mutex> fileMutexes;
+    constexpr const char* DEVICE_SERVICE_SUBTREE = "Service";
+    inline std::mutex mapMutex;
+    inline std::unordered_map<std::string, std::shared_ptr<std::mutex>> fileMutexes;
 
     std::string readDeviceServiceVariable(const std::string &location, const std::string &key)
     {
-        std::mutex *mtx;
+        std::shared_ptr<std::mutex> mtx;
+
         {
             std::lock_guard<std::mutex> lock(mapMutex);
-            mtx = &fileMutexes[location];
+
+            if(fileMutexes.find(location) == fileMutexes.end())
+                fileMutexes[location] = std::make_shared<std::mutex>();
+
+            mtx = fileMutexes[location];
         }
 
         std::lock_guard<std::mutex> lock(*mtx);
@@ -28,12 +34,15 @@ namespace HTTPServer
         try
         {
             std::ifstream file(location);
+            if(!file.is_open())
+                throw std::runtime_error("Can't open file: " + location);
+
             std::stringstream buffer;
             buffer << file.rdbuf();
             file.close();
 
             json::jobject obj = json::jobject::parse(buffer.str().c_str());
-            json::jobject service = json::jobject::parse(obj[DEVICE_SERVICE_SUBTREE].as_string().c_str());
+            json::jobject service = (obj[DEVICE_SERVICE_SUBTREE]);
             return service[key];
         }
         catch(const std::exception &e)
@@ -46,10 +55,15 @@ namespace HTTPServer
 
     std::string readDeviceGeneralVariable(const std::string &location, const std::string &key)
     {
-        std::mutex *mtx;
+        std::shared_ptr<std::mutex> mtx;
+
         {
             std::lock_guard<std::mutex> lock(mapMutex);
-            mtx = &fileMutexes[location];
+
+            if(fileMutexes.find(location) == fileMutexes.end())
+                fileMutexes[location] = std::make_shared<std::mutex>();
+
+            mtx = fileMutexes[location];
         }
 
         std::lock_guard<std::mutex> lock(*mtx);
@@ -57,6 +71,9 @@ namespace HTTPServer
         try
         {
             std::ifstream file(location);
+            if(!file.is_open())
+                throw std::runtime_error("Can't open file: " + location);
+
             std::stringstream buffer;
             buffer << file.rdbuf();
             file.close();
@@ -74,10 +91,15 @@ namespace HTTPServer
 
     bool writeDeviceGeneralVariable(const std::string &location, const std::string &key, const std::string &value)
     {
-        std::mutex *mtx;
+        std::shared_ptr<std::mutex> mtx;
+
         {
             std::lock_guard<std::mutex> lock(mapMutex);
-            mtx = &fileMutexes[location];
+
+            if(fileMutexes.find(location) == fileMutexes.end())
+                fileMutexes[location] = std::make_shared<std::mutex>();
+
+            mtx = fileMutexes[location];
         }
 
         std::lock_guard<std::mutex> lock(*mtx);
@@ -85,12 +107,14 @@ namespace HTTPServer
         try
         {
             std::ifstream file(location);
+            if(!file.is_open())
+                throw std::runtime_error("Can't open file: " + location);
+
             std::stringstream buffer;
             buffer << file.rdbuf();
             file.close();
 
             json::jobject obj = json::jobject::parse(buffer.str().c_str());
-            json::jobject service = json::jobject::parse(obj[DEVICE_SERVICE_SUBTREE].as_string().c_str());
             obj[key] = value;
             std::ofstream outputFile(location);
             outputFile << obj.pretty();
@@ -107,10 +131,15 @@ namespace HTTPServer
 
     bool writeDeviceServiceVariable(const std::string &location, const std::string &key, const std::string &value)
     {
-        std::mutex *mtx;
+        std::shared_ptr<std::mutex> mtx;
+
         {
             std::lock_guard<std::mutex> lock(mapMutex);
-            mtx = &fileMutexes[location];
+
+            if(fileMutexes.find(location) == fileMutexes.end())
+                fileMutexes[location] = std::make_shared<std::mutex>();
+
+            mtx = fileMutexes[location];
         }
 
         std::lock_guard<std::mutex> lock(*mtx);
@@ -118,12 +147,15 @@ namespace HTTPServer
         try
         {
             std::ifstream file(location);
+            if(!file.is_open())
+                throw std::runtime_error("Can't open file: " + location);
+
             std::stringstream buffer;
             buffer << file.rdbuf();
             file.close();
 
             json::jobject obj = json::jobject::parse(buffer.str().c_str());
-            json::jobject service = json::jobject::parse(obj[DEVICE_SERVICE_SUBTREE].as_string().c_str());
+            json::jobject service = (obj[DEVICE_SERVICE_SUBTREE]);
             service[key] = value;
             obj[DEVICE_SERVICE_SUBTREE] = service;
             std::ofstream outputFile(location);
