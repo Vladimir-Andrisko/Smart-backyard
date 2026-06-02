@@ -22,11 +22,15 @@ target_include_directories(json PUBLIC
 # HTTPSERVER LIBRARY
 # Header-only library
 # ========================
-add_library(httpserver INTERFACE)
-
-target_include_directories(httpserver INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/httpserver
+add_library(http
+    network/httpserver/httpserver.cpp
 )
+
+target_include_directories(http PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/network/httpserver
+)
+
+target_link_libraries(http PUBLIC json)
 
 # ========================
 # SSDP LIBRARY
@@ -43,7 +47,7 @@ target_include_directories(ssdp PUBLIC
 # ssdp depends on json + httpserver
 target_link_libraries(ssdp PUBLIC
     json
-    httpserver
+    http
 )
 
 # ========================

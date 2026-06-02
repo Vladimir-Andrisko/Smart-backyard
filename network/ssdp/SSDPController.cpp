@@ -22,13 +22,16 @@ void SSDPController::updateDevice(Device &dev){
     std::unique_lock<std::mutex> ul(mx);
     dev.alive = true;
     device_dict[dev.uuid] = dev;
+
     HTTPServer::writeDeviceServiceVariable(dev.location, "State", "ON");
 }
 
 void SSDPController::removeDevice(const std::string &uuid){
     std::unique_lock<std::mutex> ul(mx);
     std::string location = device_dict[uuid].location;
+    
     HTTPServer::writeDeviceServiceVariable(location, "State", "OFF");
+
     device_reconnect_cooldowns[uuid] = std::chrono::steady_clock::now() + std::chrono::seconds(RECONNECT_COOLDOWN);
     device_dict.erase(uuid);
 }
@@ -136,6 +139,7 @@ void SSDPController::stop(){
     if(!running) return;
 
     running = false;
+    sleepCv.notify_all();
 
     if (listenerThread.joinable()) listenerThread.join();
     if (livenessCheckThread.joinable()) livenessCheckThread.join();
@@ -195,13 +199,18 @@ void SSDPController::listenLoop(){
 }
 
 void SSDPController::searchLoop(){
+    std::unique_lock<std::mutex> mx(sleep_mx);
+
     while(running){
         if (sendto(socket_fd_, m_searchMsg.c_str(), m_searchMsg.size(), 0, (sockaddr*)&multicastAddr, sizeof(multicastAddr)) < 0){
             safeCout("[WARN] Controller SEARCH failed!\n");
         } else {
             safeCout("[INFO] Controller sent M-SEARCH\n");
         }
-        std::this_thread::sleep_for(std::chrono::seconds(SEARCH_TIMEOUT));
+
+        if(sleepCv.wait_for(mx, std::chrono::seconds(SEARCH_TIMEOUT), [this]{return !running;})){
+            break;
+        }
     }
 }
 

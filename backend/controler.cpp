@@ -7,7 +7,7 @@ int main(){
     SSDPController *ssdp = nullptr;
 
     try{
-        ssdp = new SSDPController(false);
+        ssdp = new SSDPController(true);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;

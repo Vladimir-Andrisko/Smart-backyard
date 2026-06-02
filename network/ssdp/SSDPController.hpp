@@ -10,6 +10,7 @@
 #include <atomic>
 #include <mutex>
 #include <unordered_map>
+#include <condition_variable>
 
 #include "json/json.hpp"
 #include "../httpserver/httpserver.hpp"
@@ -46,7 +47,6 @@ private:
     void searchLoop();
     void safeCout(const std::string &msg);
 
-
     std::map<std::string, Device> device_dict;
     // used to ignore stale packets from disconnecting devices
     std::map<std::string, std::chrono::steady_clock::time_point> device_reconnect_cooldowns;
@@ -63,6 +63,8 @@ private:
 
     std::mutex mx;
     std::mutex cout_mx;
+    std::mutex sleep_mx;
+    std::condition_variable sleepCv;
 
     bool debug_;
     int QoS;
