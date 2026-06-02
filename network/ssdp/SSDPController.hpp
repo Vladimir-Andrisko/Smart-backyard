@@ -9,16 +9,17 @@
 #include <map>
 #include <atomic>
 #include <mutex>
-#include <unordered_map>
+#include <unordered_set>
 #include <condition_variable>
 
-#include "json/json.hpp"
-#include "../httpserver/httpserver.hpp"
 #include <iostream>
 #include <chrono>
 #include <vector>
 #include <fstream>
 #include <sstream>
+
+#include "json.hpp"
+#include "httpserver.hpp"
 
 struct Device{
     std::string uuid;
@@ -46,10 +47,13 @@ private:
     void livenessCheckLoop();
     void searchLoop();
     void safeCout(const std::string &msg);
+    void loadWhitelist(const std::string& path);
 
     std::map<std::string, Device> device_dict;
     // used to ignore stale packets from disconnecting devices
     std::map<std::string, std::chrono::steady_clock::time_point> device_reconnect_cooldowns;
+    std::unordered_set<std::string> whitelist;
+
     int socket_fd_;
     sockaddr_in multicastAddr{};
 

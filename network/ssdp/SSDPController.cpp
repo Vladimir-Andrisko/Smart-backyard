@@ -4,6 +4,7 @@
 SSDPController::SSDPController(bool debug){
     debug_ = debug;
     m_searchMsg = SSDP::buildMSearch();
+    loadWhitelist("network/whitelist.json");
     setupSocket();
 }
 
@@ -40,6 +41,7 @@ void SSDPController::livenessCheckLoop()
 {
     while(running)
     {
+        std::vector<Device> dead_devices;
         auto now = std::chrono::steady_clock::now();
 
         {
@@ -56,16 +58,20 @@ void SSDPController::livenessCheckLoop()
                 if (age > dev.maxAge + 2)
                 {
                     dev.alive = false;
-                    HTTPServer::writeDeviceServiceVariable(dev.location, "State", "UNREACHABLE");
-                    safeCout("[WARN] Device expired: " + dev.uuid + "\n");
+                    dead_devices.push_back(dev);
                 }
             }
+        }
+
+        for (const auto &dev : dead_devices)
+        {
+            HTTPServer::writeDeviceServiceVariable(dev.location, "State", "UNREACHABLE");
+            safeCout("[WARN] Device expired: " + dev.uuid + "\n");
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(EXPIRE_TIMEOUT));
     }
 }
-
 
 
 void SSDPController::setupSocket(){
@@ -232,9 +238,11 @@ Device SSDPController::parseMessage(const std::string &msg){
     dev.st = find("ST: ");
 
     std::string temp = find("CACHE-CONTROL: max-age=");
-
     std::string debug = "Parsed msg from device: \nUUID: " + dev.uuid + "\nLOCATION: " + dev.location + "\nST: " + dev.st + "\nMAX-AGE: " + temp + "\n\n";
-    safeCout(debug);
+
+    if(whitelist.count(dev.uuid)){
+        safeCout(debug);
+    }
 
     try {
         dev.maxAge = std::stoi(temp);
@@ -243,4 +251,24 @@ Device SSDPController::parseMessage(const std::string &msg){
     }
 
     return dev;
+}
+
+
+void SSDPController::loadWhitelist(const std::string& path)
+{
+    std::ifstream file(path);
+    if (!file.is_open())
+        throw std::runtime_error("Can't open whitelist file");
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+
+    json::jobject obj = json::jobject::parse(buffer.str().c_str());
+    json::jobject list = obj["whitelist"];
+
+    for(int i = 0; i < list.size(); i++){
+        whitelist.insert(list.array(i).as_string());
+        safeCout(list.array(i).as_string()+ "\n\n");
+    }
+    
 }

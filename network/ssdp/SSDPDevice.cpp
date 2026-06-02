@@ -1,9 +1,5 @@
 #include "SSDPDevice.hpp"
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <mutex>
-#include "json/json.hpp"
+
 
 
 void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, const std::string& location)
