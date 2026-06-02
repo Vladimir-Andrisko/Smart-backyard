@@ -1,12 +1,5 @@
 #include "SSDPController.hpp"
 #include "SSDPCommon.hpp"
-#include "json/json.hpp"
-#include "../httpserver/httpserver.hpp"
-#include <iostream>
-#include <chrono>
-#include <vector>
-#include <fstream>
-#include <sstream>
 
 SSDPController::SSDPController(bool debug){
     debug_ = debug;

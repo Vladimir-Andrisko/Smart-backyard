@@ -11,6 +11,14 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "json/json.hpp"
+#include "../httpserver/httpserver.hpp"
+#include <iostream>
+#include <chrono>
+#include <vector>
+#include <fstream>
+#include <sstream>
+
 struct Device{
     std::string uuid;
     std::string location;
@@ -29,6 +37,16 @@ static constexpr int RECONNECT_COOLDOWN = 60;
 class SSDPController
 {
 private:
+    Device parseMessage(const std::string &msg);
+    void sendControllerNotify(const Device &dev);
+
+    void setupSocket();
+    void listenLoop();
+    void livenessCheckLoop();
+    void searchLoop();
+    void safeCout(const std::string &msg);
+
+
     std::map<std::string, Device> device_dict;
     // used to ignore stale packets from disconnecting devices
     std::map<std::string, std::chrono::steady_clock::time_point> device_reconnect_cooldowns;
@@ -47,15 +65,7 @@ private:
     std::mutex cout_mx;
 
     bool debug_;
-
-    Device parseMessage(const std::string &msg);
-    void sendControllerNotify(const Device &dev);
-
-    void setupSocket();
-    void listenLoop();
-    void livenessCheckLoop();
-    void searchLoop();
-    void safeCout(const std::string &msg);
+    int QoS;
 
 public:
     SSDPController(bool debug);

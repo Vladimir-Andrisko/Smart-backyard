@@ -14,17 +14,24 @@ void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, co
     alive_msg = SSDP::buildNotifyAlive(uuid, location, deviceType);
     byebye_msg = SSDP::buildNotifyByebye(uuid, deviceType);
     response_msg = SSDP::buildResponse(uuid, location, deviceType);
+
+    std::cout << "Alive msg: \n" << alive_msg << std::endl << std::endl;
+    std::cout << "Bye msg: \n" << byebye_msg << std::endl << std::endl;
+    std::cout << "Response msg: \n" << response_msg << std::endl << std::endl;
+
     setupSocket();
 }
 
-SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location)
+SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, int qos)
 {
+    this->QoS = qos;
     init(uuid, deviceType, location);
 }
 
-SSDPDevice::SSDPDevice(const std::string& location)
+SSDPDevice::SSDPDevice(const std::string& location, int qos)
 {
     try{
+        this->QoS = qos;
         std::ifstream file(location);
         std::stringstream buffer;
         buffer << file.rdbuf();
@@ -34,15 +41,13 @@ SSDPDevice::SSDPDevice(const std::string& location)
         init(obj["uuid"], obj["deviceType"], location);
 
     }catch(const std::exception &e){
-        std::cerr << e.what() << std::endl;
-        init("err", "err", "err");
+        throw std::runtime_error("Can't initialize device. Unable to parse json file!");
     }
 }
 
 SSDPDevice::~SSDPDevice()
 {
     stop();
-    if(socket_fd_ >= 0) close(socket_fd_);
 }
 
 void SSDPDevice::setupSocket(){
@@ -88,32 +93,43 @@ void SSDPDevice::setupSocket(){
 }
 
 void SSDPDevice::sendNotifyAlive(){
-    if(sendto(socket_fd_, (const char*)alive_msg.c_str(), alive_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
-        std::cerr << "[WARN] Failed to send alive msg!\n";
+    for(int i = 0; i < QoS; i++){
+        if(sendto(socket_fd_, (const char*)alive_msg.c_str(), alive_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
+            safeCout("[WARN] Failed to send alive msg!\n");
+        }
     }
 }
 
 void SSDPDevice::sendNotifyByebye(){
-    if(sendto(socket_fd_, (const char*)byebye_msg.c_str(), byebye_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
-        std::cerr << "[WARN] Failed to send byebye msg!\n";
-    }
+    for(int i = 0; i < QoS; i++){
+        if(sendto(socket_fd_, (const char*)byebye_msg.c_str(), byebye_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
+            safeCout("[WARN] Failed to send byebye msg!\n");
+        }
+    }   
 }
 
 void SSDPDevice::respondToSearch(const sockaddr_in& sender){
-    if(sendto(socket_fd_, (const char*)response_msg.c_str(), response_msg.size(), 0, (const sockaddr *)&sender, sizeof(sender)) < 0){
-        std::cerr << "[WARN] Failed to send response msg!\n";
+    for(int i = 0; i < QoS; i++){
+        if(sendto(socket_fd_, (const char*)response_msg.c_str(), response_msg.size(), 0, (const sockaddr *)&sender, sizeof(sender)) < 0){
+            safeCout("[WARN] Failed to send response msg!\n");
+        }
     }
 }
 
 void SSDPDevice::aliveLoop(){
+    std::unique_lock<std::mutex> mx(sleepMutex);
+
     while(running){
-        std::this_thread::sleep_for(std::chrono::seconds(NOTIFY_TIMEOUT));
+        if(sleepCv.wait_for(mx, std::chrono::seconds(NOTIFY_TIMEOUT), [this]{return !running;})){
+            break;
+        }
+
         sendNotifyAlive();
     }
 }
 
 void SSDPDevice::listenLoop() {
-    char buffer[1024];
+    char buffer[BUFFER_SIZE];
 
     while (running) {
         sockaddr_in sender{};
@@ -148,8 +164,21 @@ void SSDPDevice::stop() {
 
     running = false;
 
+    sleepCv.notify_all();
     sendNotifyByebye();
 
     if (listenerThread.joinable()) listenerThread.join();
     if (aliveThread.joinable()) aliveThread.join();
+
+    if(socket_fd_ >= 0){
+        close(socket_fd_);
+        socket_fd_ = -1;
+    }
+}
+
+
+void SSDPDevice::safeCout(const std::string msg){
+    std::unique_lock<std::mutex> mx(cout_mx);
+
+    std::cout << msg;
 }

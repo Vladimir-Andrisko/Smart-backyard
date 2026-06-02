@@ -25,9 +25,9 @@ int main(int argc, char* argv[]){
 
     try{
         if (argc >= 2)
-            ssdp = new SSDPDevice(argv[1]);
+            ssdp = new SSDPDevice(argv[1], 5);
         else
-            ssdp = new SSDPDevice("1", "gas", "/negde");
+            ssdp = new SSDPDevice("1", "gas", "/negde", 5);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;

@@ -9,7 +9,7 @@
 #include <memory>
 #include "json/json.hpp"
 
-// Proxy namespace that functions as a stand-in for a HTTP server
+
 namespace HTTPServer
 {
     constexpr const char* DEVICE_SERVICE_SUBTREE = "Service";

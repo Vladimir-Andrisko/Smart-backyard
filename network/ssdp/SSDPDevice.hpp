@@ -12,9 +12,11 @@
 #include <atomic>
 #include <unordered_map>
 #include <mutex>
+#include <condition_variable>
 
-static constexpr int NOTIFY_TIMEOUT = 5;
+static constexpr int NOTIFY_TIMEOUT = 2;
 static constexpr int SOCKET_TIMEOUT = 1;
+static constexpr int BUFFER_SIZE = 1024;
 
 class SSDPDevice
 {
@@ -28,6 +30,7 @@ private:
     void sendNotifyAlive();
     void sendNotifyByebye();
     void respondToSearch(const sockaddr_in& sender);
+    void safeCout(const std::string msg);
 
     int socket_fd_;
     sockaddr_in multicastAddr{};
@@ -41,17 +44,18 @@ private:
     std::thread listenerThread;
     std::thread aliveThread;
 
-    // JSON info
+    std::mutex cout_mx;
+    std::mutex sleepMutex;
+    std::condition_variable sleepCv;
+
     std::string location;
     std::string uuid;
     std::string deviceType;
-
-    /*std::mutex mapMutex;
-    std::unordered_map<std::string, std::mutex> fileMutexes;*/
+    int QoS;
     
 public:
-    SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location);
-    SSDPDevice(const std::string& location);
+    SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, int qos);
+    SSDPDevice(const std::string& location, int qos);
     ~SSDPDevice();
 
     void start();
