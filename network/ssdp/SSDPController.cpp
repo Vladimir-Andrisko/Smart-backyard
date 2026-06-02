@@ -29,7 +29,7 @@ void SSDPController::updateDevice(Device &dev){
 void SSDPController::removeDevice(const std::string &uuid){
     std::unique_lock<std::mutex> ul(mx);
     std::string location = device_dict[uuid].location;
-    
+
     HTTPServer::writeDeviceServiceVariable(location, "State", "OFF");
 
     device_reconnect_cooldowns[uuid] = std::chrono::steady_clock::now() + std::chrono::seconds(RECONNECT_COOLDOWN);
@@ -145,13 +145,15 @@ void SSDPController::stop(){
     if (livenessCheckThread.joinable()) livenessCheckThread.join();
     if (searchThread.joinable()) searchThread.join();
 
-    std::lock_guard<std::mutex> lock(mx);
-
     std::vector<std::string> uuids;
-    uuids.reserve(device_dict.size());
+    {
+        std::lock_guard<std::mutex> lock(mx);
+        
+        uuids.reserve(device_dict.size());
 
-    for (auto& [uuid, dev] : device_dict)
-        uuids.push_back(uuid);
+        for (auto& [uuid, dev] : device_dict)
+            uuids.push_back(uuid);
+    }
 
     for (auto& uuid : uuids)
         removeDevice(uuid);
@@ -192,8 +194,6 @@ void SSDPController::listenLoop(){
             else
                 safeCout("[INFO] Message from " + dev.uuid + " rejected due to cooldown.\n");
         }
-
-        std::this_thread::sleep_for(std::chrono::seconds(EXPIRE_TIMEOUT));
     }
 
 }
@@ -236,10 +236,10 @@ Device SSDPController::parseMessage(const std::string &msg){
     std::string debug = "Parsed msg from device: \nUUID: " + dev.uuid + "\nLOCATION: " + dev.location + "\nST: " + dev.st + "\nMAX-AGE: " + temp + "\n\n";
     safeCout(debug);
 
-    if(temp.empty()){
+    try {
+        dev.maxAge = std::stoi(temp);
+    } catch (...) {
         dev.maxAge = 10;
-    }else{
-        dev.maxAge = stoi(temp);
     }
 
     return dev;
