@@ -7,8 +7,8 @@
 #include <thread>
 #include <mutex>
 #include "json.hpp"
+#include "temperature_sensor.hpp"
 
-#include "humidity_sensor.hpp"
 
 using namespace std;
 static SSDPDevice *ssdp = nullptr;
@@ -36,7 +36,7 @@ int main(int argc, char* argv[]){
         if (argc >= 3)
             ssdp = new SSDPDevice(argv[1], 5);
         else
-            ssdp = new SSDPDevice("1", "humidity_sensor", "config/sensor/humidity_sensor_desc.json", 5);
+            ssdp = new SSDPDevice("1", "temperature_sensor", "config/sensor/temperature_sensor_desc.json", 5);
 
         ip = argv[2];
     }catch(const std::exception &e){
@@ -44,16 +44,19 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
+
     try{
-        topic = loadTopicFromJson(argv[1]);
+        std::cout << "putanja:  " << argv[1] << endl;
+        cout <<  loadTopicFromJson(argv[1]);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
     }
 
+
     ssdp->start();
 	mosquitto_lib_init();
-	mosq = mosquitto_new("humidity_sensor", true, NULL);
+	mosq = mosquitto_new("temperature_sensor", true, NULL);
 
 	rc = mosquitto_connect(mosq, ip.c_str(), 1883, keepAlive);
 	if(rc != 0){
@@ -74,9 +77,9 @@ int main(int argc, char* argv[]){
         unique_lock<mutex> ul(sleepMx);
         while (running)
         {
-            int humidity = generateHumidity();
-            string msg = construct_msg(humidity);
-            cout << "Humiditi sensor: \n" << msg << endl;
+            int temperature = generateTemperature();
+            string msg = construct_msg(temperature);
+            cout << "Temperature sensor: \n" << msg << endl;
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
 
             sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME), [&]{return !running.load();});
@@ -95,12 +98,12 @@ int main(int argc, char* argv[]){
 }
 
 
-int generateHumidity()
+int generateTemperature()
 {
     static std::random_device rd;
     static std::mt19937 gen(rd());
 
-    std::normal_distribution<> dist(50.0, 15.0);
+    std::normal_distribution<> dist(15.0, 20.0);
 
     int value = (int)std::round(dist(gen));
 
@@ -111,16 +114,16 @@ int generateHumidity()
 }
 
 
-std::string construct_msg(int humidity){
+std::string construct_msg(int temperature){
 
     return std::string(R"json(
 {
-    "uuid": "uuid:1:humidity_sensor",
+    "uuid": "uuid:1:temperature_sensor",
     "group": "global",
-    "humidityService": {
+    "TemperatureService": {
         "State": "ON",
-        "Humidity": )json")
-    + std::to_string(humidity) +
+        "Temperature": )json")
+    + std::to_string(temperature) +
     R"json(
     }
 }

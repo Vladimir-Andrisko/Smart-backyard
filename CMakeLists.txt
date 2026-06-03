@@ -91,3 +91,16 @@ target_link_libraries(humidity_sensor
     ssdp
     ${MOSQUITTO_LIBRARIES}
 )
+
+add_executable(temperature_sensor devices/src/temperature_sensor.cpp)
+
+target_include_directories(temperature_sensor PRIVATE
+    json
+    ${CMAKE_CURRENT_SOURCE_DIR}/devices/include
+    ${MOSQUITTO_INCLUDE_DIRS}
+)
+
+target_link_libraries(temperature_sensor
+    ssdp
+    ${MOSQUITTO_LIBRARIES}
+)

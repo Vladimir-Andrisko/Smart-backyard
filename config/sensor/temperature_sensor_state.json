@@ -1,0 +1,9 @@
+{
+    "uuid": "1:temperature_sensor",
+    "group": "global",
+
+    "TemperatureService":  {
+        "state": "ON",
+        "temperature": 23
+    }
+}
