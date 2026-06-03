@@ -1,6 +1,7 @@
 #include "network/ssdp/SSDPController.hpp"
 #include <iostream>
 #include "mosquitto.h"
+#include "json.hpp"
 
 using namespace std;
 
@@ -10,7 +11,7 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 		printf("Error with result code: %d\n", rc);
 		exit(-1);
 	}
-	mosquitto_subscribe(mosq, NULL, "test/t1", 0);
+	mosquitto_subscribe(mosq, NULL, "garden/global/sensor/humidity_sensor", 0);
 }
 
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg) {

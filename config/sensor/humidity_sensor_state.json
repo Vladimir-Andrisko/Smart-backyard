@@ -1,0 +1,9 @@
+{
+    "uuid": "uuid:1:humidity_sensor",
+    "group": "humidity_sensor",
+
+    "humidityService" : {
+        "State" : "ON",
+        "Humidity" : 50
+    }
+}

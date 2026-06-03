@@ -1,5 +1,0 @@
-#ifndef HUMIDITY_SENSOR_HPP_
-#define HUMIDITY_SENSOR_HPP_
-
-
-#endif

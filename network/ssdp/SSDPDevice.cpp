@@ -34,7 +34,7 @@ SSDPDevice::SSDPDevice(const std::string& location, int qos)
         std::string content = buffer.str();
         json::jobject obj = json::jobject::parse(content.c_str());
 
-        init(obj["uuid"], obj["deviceType"], location);
+        init(obj["uuid"], obj["group"], location);
 
     }catch(const std::exception &e){
         throw std::runtime_error("Can't initialize device. Unable to parse json file!");

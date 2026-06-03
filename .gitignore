@@ -1,4 +1,4 @@
 *.o
 build/
 bin/
-script_build.sh
+*.sh

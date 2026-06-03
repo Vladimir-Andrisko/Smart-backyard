@@ -67,13 +67,27 @@ target_link_libraries(controller
 # ========================
 # SENSOR
 # ========================
-add_executable(sensor devices/row_node/src/sensor_node.cpp)
+add_executable(sensor devices/src/sensor_node.cpp)
 
 target_include_directories(sensor PRIVATE
     ${MOSQUITTO_INCLUDE_DIRS}
 )
 
 target_link_libraries(sensor
+    ssdp
+    ${MOSQUITTO_LIBRARIES}
+)
+
+
+add_executable(humidity_sensor devices/src/humidity_sensor.cpp)
+
+target_include_directories(humidity_sensor PRIVATE
+    json
+    ${CMAKE_CURRENT_SOURCE_DIR}/devices/include
+    ${MOSQUITTO_INCLUDE_DIRS}
+)
+
+target_link_libraries(humidity_sensor
     ssdp
     ${MOSQUITTO_LIBRARIES}
 )
