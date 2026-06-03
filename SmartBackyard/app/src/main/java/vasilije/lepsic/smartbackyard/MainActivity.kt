@@ -2,6 +2,7 @@ package vasilije.lepsic.smartbackyard
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -10,6 +11,11 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import org.eclipse.paho.client.mqttv3.MqttException
 
 class MainActivity : AppCompatActivity() {
 
@@ -24,7 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bannerAlert: LinearLayout
 
     // Stavke menija
-    private lateinit var menuItemHome: TextView
+    //private lateinit var menuItemHome: TextView
     private lateinit var menuItemConfigurator: TextView
     private lateinit var menuItemLogs: TextView // PROMENJENO: Umesto drone
     private lateinit var menuItemSettings: TextView
@@ -45,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         bannerAlert = findViewById(R.id.bannerAlert)
 
         // Inicijalizacija stavki menija
-        menuItemHome = findViewById(R.id.menuItemHome)
+        //menuItemHome = findViewById(R.id.menuItemHome)
         menuItemConfigurator = findViewById(R.id.menuItemConfigurator)
         menuItemLogs = findViewById(R.id.menuItemLogs) // PROMENJENO
         menuItemSettings = findViewById(R.id.menuItemSettings)
@@ -77,9 +83,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         // AKCIJE ZA STAVKE U BOČNOM MENIJU
-        menuItemHome.setOnClickListener {
+        /*menuItemHome.setOnClickListener {
             drawerLayout.closeDrawer(GravityCompat.START)
-        }
+        }*/
 
         menuItemConfigurator.setOnClickListener {
             drawerLayout.closeDrawer(GravityCompat.START)
@@ -111,5 +117,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         onBackPressedDispatcher.addCallback(callback)
+        mqttConnectionTest()
+    }
+
+    private fun mqttConnectionTest() {
+        try {
+            MQTTHandler.setIpAddress(MQTTHandler.grabSavedIp(this@MainActivity))
+            MQTTHandler.setClientId("SampleClient")
+            lifecycleScope.launch(Dispatchers.IO) {
+                while (true) {
+                    MQTTHandler.mainLoop()
+                    delay(2000)
+                }
+            }
+        } catch (e: MqttException) {
+            Log.d("MQTT Test", e.cause!!.toString())
+        }
     }
 }

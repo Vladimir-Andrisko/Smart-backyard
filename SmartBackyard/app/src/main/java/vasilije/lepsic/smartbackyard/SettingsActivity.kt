@@ -29,7 +29,7 @@ class SettingsActivity : AppCompatActivity() {
         val sharedPreferences = getSharedPreferences("SmartBackyardPrefs", Context.MODE_PRIVATE)
 
         // Učitavamo prethodno sačuvane vrednosti (ako postoje, ako ne, stavljamo prazno ili default)
-        val sacuvanaIp = sharedPreferences.getString("ip_address", "")
+        val sacuvanaIp = sharedPreferences.getString("ip_address", "192.168.100.39")
         val sacuvanPrag = sharedPreferences.getInt("min_moisture", 40) // Default je 40%
 
         etIpAddress.setText(sacuvanaIp)

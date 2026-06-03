@@ -204,15 +204,6 @@
             android:layout_marginBottom="32dp"/>
 
         <TextView
-            android:id="@+id/menuItemHome"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/menu_home"
-            android:textColor="#2C3E50"
-            android:textSize="18sp"
-            android:padding="12dp" />
-
-        <TextView
             android:id="@+id/menuItemConfigurator"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
