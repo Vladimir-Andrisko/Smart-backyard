@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvConfigTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Konfiguracija bašte"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <Spinner
+        android:id="@+id/spinnerZemljiste"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tvConfigTitle"
+        android:layout_marginTop="16dp"
+        android:entries="@array/tipovi_zemljista" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvRedovi"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_above="@+id/layoutButtons"
+        android:layout_below="@+id/spinnerZemljiste"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp" />
+
+    <LinearLayout
+        android:id="@+id/layoutButtons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btnDodajRed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dodaj red" />
+
+        <Button
+            android:id="@+id/btnPotvrdi"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Potvrdi konfiguraciju"
+            android:backgroundTint="@color/purple_700"
+            android:textColor="@android:color/white" />
+    </LinearLayout>
+
+</RelativeLayout>
