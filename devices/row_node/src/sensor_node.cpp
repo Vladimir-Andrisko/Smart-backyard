@@ -1,6 +1,7 @@
 #include "network/ssdp/SSDPDevice.hpp"
 #include <iostream>
 #include <csignal>
+#include "mosquitto.h"
 
 using namespace std;
 
@@ -21,13 +22,13 @@ void handleSignal(int)
 
 int main(int argc, char* argv[]){
 
-    //std::signal(SIGINT, handleSignal);
+    std::signal(SIGINT, handleSignal);
 
     try{
         if (argc >= 2)
             ssdp = new SSDPDevice(argv[1], 5);
         else
-            ssdp = new SSDPDevice("1", "gas", "/negde", 5);
+            ssdp = new SSDPDevice("1", "row_sensor", "config/sensor/sensor_test.json", 5);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;

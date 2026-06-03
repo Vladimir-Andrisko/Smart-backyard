@@ -34,7 +34,7 @@ struct Device{
 static constexpr int SOCKET_TIMEOUT = 1;
 static constexpr int SEARCH_TIMEOUT = 30;
 static constexpr int EXPIRE_TIMEOUT = 1; 
-static constexpr int RECONNECT_COOLDOWN = 60;
+static constexpr int RECONNECT_COOLDOWN = 10;
 
 class SSDPController
 {

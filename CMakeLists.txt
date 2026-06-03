@@ -8,23 +8,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 # ========================
+# PKG CONFIG + MOSQUITTO
+# ========================
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
+
+# ========================
 # JSON LIBRARY
 # ========================
-add_library(json
-    json/json.cpp
-)
+add_library(json json/json.cpp)
 
 target_include_directories(json PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/json
 )
 
 # ========================
-# HTTPSERVER LIBRARY
-# Header-only library
+# HTTP SERVER
 # ========================
-add_library(http
-    network/httpserver/httpserver.cpp
-)
+add_library(http network/httpserver/httpserver.cpp)
 
 target_include_directories(http PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/network/httpserver
@@ -33,7 +34,7 @@ target_include_directories(http PUBLIC
 target_link_libraries(http PUBLIC json)
 
 # ========================
-# SSDP LIBRARY
+# SSDP
 # ========================
 add_library(ssdp
     network/ssdp/SSDPController.cpp
@@ -44,30 +45,35 @@ target_include_directories(ssdp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# ssdp depends on json + httpserver
 target_link_libraries(ssdp PUBLIC
     json
     http
 )
 
 # ========================
-# CONTROLLER EXECUTABLE
+# CONTROLLER
 # ========================
-add_executable(controller
-    backend/controler.cpp
+add_executable(controller backend/controler.cpp)
+
+target_include_directories(controller PRIVATE
+    ${MOSQUITTO_INCLUDE_DIRS}
 )
 
 target_link_libraries(controller
     ssdp
+    ${MOSQUITTO_LIBRARIES}
 )
 
 # ========================
-# SENSOR EXECUTABLE
+# SENSOR
 # ========================
-add_executable(sensor
-    devices/row_node/src/sensor_node.cpp
+add_executable(sensor devices/row_node/src/sensor_node.cpp)
+
+target_include_directories(sensor PRIVATE
+    ${MOSQUITTO_INCLUDE_DIRS}
 )
 
 target_link_libraries(sensor
     ssdp
+    ${MOSQUITTO_LIBRARIES}
 )

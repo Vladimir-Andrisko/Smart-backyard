@@ -125,7 +125,7 @@ void SSDPController::sendControllerNotify(const Device &dev) {
             "USN: " + dev.uuid + "\r\n"
             "\r\n";
 
-    if (sendto(socket_fd_, msg.c_str(), msg.size(), 0, (sockaddr*)&multicastAddr, sizeof(multicastAddr)) < 0)
+    if ((sendto(socket_fd_, msg.c_str(), msg.size(), 0, (sockaddr*)&multicastAddr, sizeof(multicastAddr)) < 0) && debug_)
     {
         safeCout("[WARN] Controller NOTIFY send failed for: " + dev.uuid + "\n");
     } else {
@@ -233,16 +233,22 @@ Device SSDPController::parseMessage(const std::string &msg){
         return msg.substr(start, end - start);
     };
 
-    dev.uuid = find("USN: ");
+    std::string uuid = find("USN: ");
+
+    if(whitelist.find(uuid) == whitelist.end()){
+        dev.uuid = "";
+        dev.location = "";
+        dev.st = "";
+        return dev;
+    }
+
+    dev.uuid = uuid;
     dev.location = find("LOCATION: ");
     dev.st = find("ST: ");
 
     std::string temp = find("CACHE-CONTROL: max-age=");
-    std::string debug = "Parsed msg from device: \nUUID: " + dev.uuid + "\nLOCATION: " + dev.location + "\nST: " + dev.st + "\nMAX-AGE: " + temp + "\n\n";
-
-    if(whitelist.count(dev.uuid)){
-        safeCout(debug);
-    }
+    std::string debug = "\nParsed msg from device: \nUUID: " + dev.uuid + "\nLOCATION: " + dev.location + "\nST: " + dev.st + "\nMAX-AGE: " + temp + "\n\n";
+    safeCout(debug);
 
     try {
         dev.maxAge = std::stoi(temp);
@@ -268,7 +274,5 @@ void SSDPController::loadWhitelist(const std::string& path)
 
     for(int i = 0; i < list.size(); i++){
         whitelist.insert(list.array(i).as_string());
-        safeCout(list.array(i).as_string()+ "\n\n");
     }
-    
 }

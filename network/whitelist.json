@@ -2,8 +2,18 @@
     "whitelist": [
         "uuid:1::pressure_sensor",
         "uuid:1::humidity_sensor",
+        "uuid:1::light_sensor",
+
         "uuid:1::row_sensor",
         "uuid:2::row_sensor",
-        "uuod:3::row_sensor"
+        "uuid:3::row_sensor",
+        "uuid:4::row_sensor",
+        "uuid:5::row_sensor",
+
+        "uuid:1::row_actuator",
+        "uuid:2::row_actuator",
+        "uuid:3::row_actuator",
+        "uuid:4::row_actuator",
+        "uuid:5::row_actuator"
     ]
 }
