@@ -12,8 +12,10 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.eclipse.paho.client.mqttv3.MqttMessage
 
 class ZonesActivity : AppCompatActivity() {
 
@@ -192,7 +194,7 @@ class ZonesActivity : AppCompatActivity() {
 
         // Dugme za ručno zalivanje - toggle OPEN/CLOSE
         var zalivanjAktivno = false
-        val topik = "basta/red${red.redId}/aktuator/ventil"
+        val topik = "garden/row${red.redId}/actuator/valve"
 
         val btnZalij = Button(this).apply {
             text = "ZALIJ"
@@ -208,15 +210,13 @@ class ZonesActivity : AppCompatActivity() {
                 zalivanjAktivno = !zalivanjAktivno
 
                 if (zalivanjAktivno) {
-                    // mqttManager.publish(topik, "OPEN", qos = 1)
-                    Toast.makeText(this@ZonesActivity, "MQTT: $topik → OPEN (QoS 1)", Toast.LENGTH_SHORT).show()
+                    MQTTHandler.publish(topik, MQTTFactory.createMessage("OPEN", MQTTHandler.valveQOS))
                     tvStatus.text = "● AKTIVNO"
                     tvStatus.setTextColor(Color.parseColor("#2ECC71"))
                     text = "PRESTANI"
                     setBackgroundColor(Color.parseColor("#E74C3C"))
                 } else {
-                    // mqttManager.publish(topik, "CLOSE", qos = 1)
-                    Toast.makeText(this@ZonesActivity, "MQTT: $topik → CLOSE (QoS 1)", Toast.LENGTH_SHORT).show()
+                    MQTTHandler.publish(topik, MQTTFactory.createMessage("CLOSE", MQTTHandler.valveQOS))
                     tvStatus.text = "● ZATVOREN"
                     tvStatus.setTextColor(Color.parseColor("#E74C3C"))
                     text = "ZALIJ"
@@ -277,12 +277,22 @@ class ZonesActivity : AppCompatActivity() {
     }
 
     private fun posaljiKrovuMqttKomandu() {
-        val topik = "basta/global/aktuator/krov"
+        val topik = "garden/global/actuator/roof"
         val payload = if (!isRoofOpened) "OPEN" else "CLOSE"
-        // mqttManager.publish(topik, payload, qos = 1)
-        Toast.makeText(this, "MQTT [$payload] → $topik (QoS 1)", Toast.LENGTH_SHORT).show()
+        MQTTHandler.publish(topik, MQTTFactory.createMessage(payload, MQTTHandler.roofQOS))
         btnRoofAction.text = if (!isRoofOpened) "Otvaranje..." else "Zatvaranje..."
         btnRoofAction.isEnabled = false
+        lifecycleScope.launch {
+            withContext(Dispatchers.Main) {
+                btnRoofAction.setBackgroundColor(Color.parseColor("#D3D3D3"))
+            }
+            delay(5000)
+            btnRoofAction.isEnabled = true
+            isRoofOpened = !isRoofOpened
+            withContext(Dispatchers.Main) {
+                azurirajUIKrova(isRoofOpened)
+            }
+        }
     }
 
     private fun azurirajUIZaSunce(procenat: Int) {
@@ -301,12 +311,11 @@ class ZonesActivity : AppCompatActivity() {
             tvRoofStatus.text = "OTVOREN"
             tvRoofStatus.setTextColor(Color.parseColor("#2ECC71"))
             btnRoofAction.text = "ZATVORI KROV"
-            btnRoofAction.setBackgroundColor(Color.parseColor("#E74C3C"))
         } else {
             tvRoofStatus.text = "ZATVOREN"
             tvRoofStatus.setTextColor(Color.parseColor("#E74C3C"))
             btnRoofAction.text = "OTVORI KROV"
-            btnRoofAction.setBackgroundColor(Color.parseColor("#3498DB"))
         }
+        btnRoofAction.setBackgroundColor(Color.parseColor("#3498DB"))
     }
 }

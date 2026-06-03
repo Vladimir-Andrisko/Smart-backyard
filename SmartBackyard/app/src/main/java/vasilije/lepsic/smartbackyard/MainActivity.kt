@@ -56,6 +56,12 @@ class MainActivity : AppCompatActivity() {
         menuItemLogs = findViewById(R.id.menuItemLogs) // PROMENJENO
         menuItemSettings = findViewById(R.id.menuItemSettings)
 
+        val baza = AppDatabase.getInstance(this)
+        lifecycleScope.launch {
+            DatabaseSeeder.popuniAkoJePrazno(baza)
+        }
+
+
         // OTVARANJE BOČNE FIOKE
         btnMenuToggle.setOnClickListener {
             drawerLayout.openDrawer(GravityCompat.START)
@@ -127,7 +133,7 @@ class MainActivity : AppCompatActivity() {
             lifecycleScope.launch(Dispatchers.IO) {
                 while (true) {
                     MQTTHandler.mainLoop()
-                    delay(2000)
+                    delay(10000)
                 }
             }
         } catch (e: MqttException) {

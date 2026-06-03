@@ -15,8 +15,10 @@ class MQTTHandler {
         fun mainLoop() {
             if (!isConnected())
                 connect()
-
-            publish("test/t1", "Test alive message")
+            //Keep alive signal
+            val msg = MqttMessage(("Test alive message").encodeToByteArray())
+            msg.qos = keepAliveQOS
+            publish("test/t1", msg)
         }
 
         fun connect() : Boolean {
@@ -56,10 +58,6 @@ class MQTTHandler {
             return clientId
         }
 
-        fun getQOS() : Int {
-            return qos
-        }
-
         fun setIpAddress(ipAddress : String) {
             this.ipAddress = ipAddress
         }
@@ -68,16 +66,12 @@ class MQTTHandler {
             this.clientId = clientId
         }
 
-        fun setQOS(qos : Int) {
-            this.qos = qos
-        }
-
         fun isConnected() : Boolean {
             return mqttClient != null && mqttClient!!.isConnected
         }
 
-        fun publish(topic : String, message : String) {
-            mqttClient?.publish(topic, MqttMessage(message.encodeToByteArray()))
+        fun publish(topic : String, message : MqttMessage) {
+            mqttClient?.publish(topic, message)
         }
 
         fun subscribe(topic : String) {
@@ -96,7 +90,12 @@ class MQTTHandler {
         private var options = MqttConnectOptions()
         private var ipAddress = ""
         private var clientId = ""
-        private var qos = 2
         private val persistence = MemoryPersistence()
+
+        const val keepAliveQOS = 0
+        const val valveQOS = 2
+        const val sensorQOS = 1
+        const val globalSensorQOS = 0
+        const val roofQOS = 1
     }
 }

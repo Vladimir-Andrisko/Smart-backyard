@@ -14,9 +14,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class CatalogActivity : AppCompatActivity() {
 
@@ -44,12 +42,6 @@ class CatalogActivity : AppCompatActivity() {
         adapterKataloga = CatalogAdapter(this, lokalnaListaKultura)
         listViewCatalog.adapter = adapterKataloga
 
-        // Seeder pa ucitavanje — sekvencijalno
-        lifecycleScope.launch {
-            DatabaseSeeder.popuniAkoJePrazno(baza)
-            osveziKatalogIzBaze()
-        }
-
         btnAddNewCulture.setOnClickListener {
             val namera = android.content.Intent(this, CatalogFormActivity::class.java)
             startActivity(namera)
@@ -63,10 +55,7 @@ class CatalogActivity : AppCompatActivity() {
 
     private fun osveziKatalogIzBaze() {
         lifecycleScope.launch {
-            val kultureIzBaze = withContext(Dispatchers.IO) {
-                baza.backyardDao().getAllKulture()
-            }
-
+            val kultureIzBaze = baza.backyardDao().getAllKulture()
             lokalnaListaKultura.clear()
             lokalnaListaKultura.addAll(kultureIzBaze)
             adapterKataloga.notifyDataSetChanged()
@@ -79,9 +68,7 @@ class CatalogActivity : AppCompatActivity() {
             setMessage(getString(R.string.dialog_delete_msg))
             setPositiveButton("Obriši") { _, _ ->
                 lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        baza.backyardDao().deleteKultura(kultura)
-                    }
+                    baza.backyardDao().deleteKultura(kultura)
                     lokalnaListaKultura.remove(kultura)
                     adapterKataloga.notifyDataSetChanged()
                     Toast.makeText(this@CatalogActivity, getString(R.string.toast_deleted), Toast.LENGTH_LONG).show()
