@@ -1,3 +1,198 @@
 <resources>
-    <string name="app_name">SmartBackyard</string>
+    <string name="app_name">Smart Backyard</string>
+    <string name="app_title">Smart Backyard</string>
+    <string name="system_status_title">Sistem Status</string>
+    <string name="status_connecting">Povezivanje...</string>
+    <string name="status_online">Sistem na mreži online</string>
+    <string name="btn_refresh">Osveži Podatke</string>
+
+    <string name="temp_label">Temperatura: %s °C</string>
+    <string name="humidity_label">Vlažnost zemljišta: %d%%</string>
+    <string name="lights_status_label">Dvorišno svetlo: %s</string>
+
+    <string name="lights_on">UPALJENO</string>
+    <string name="lights_off">UGAŠENO</string>
+
+    <string name="toast_refreshed">Podaci osveženi!</string>
+
+    <string name="navigation_drawer_open">Otvori navigaciju</string>
+    <string name="navigation_drawer_close">Zatvori navigaciju</string>
+    <string name="menu_home">Glavni Ekran</string>
+    <string name="menu_drone">Kontrola Drona</string>
+    <string name="menu_settings">Podešavanja</string>
+
+    <string name="status_local_active">Veza aktivna</string>
+    <string name="status_local_inactive">Veza neaktivna</string>
+    <string name="status_cloud_connected">Povezano preko Cloud-a</string>
+    <string name="status_offline">Offline - Pokušavam povezivanje</string>
+
+    <string name="card_overview_title">Pregled bašte i ručna kontrola</string>
+    <string name="card_overview_desc">Upravljanje ventilima, statusi redova u realnom vremenu</string>
+
+    <string name="card_catalog_title">Katalog i upravljanje kulturama</string>
+    <string name="card_catalog_desc">Pregled agrotehničkih profila biljaka i editovanje</string>
+
+    <string name="card_analytics_title">Analitika i istorija očitavanja</string>
+    <string name="card_analytics_desc">Istorijski grafikoni i vremenske serije senzora</string>
+
+    <string name="alert_leak_detected">ALARM: Detektovano curenje vode u sistemu!</string>
+
+    <string name="title_zone_overview">Pregled zona i kontrola</string>
+    <string name="btn_back">Nazad</string>
+
+    <string name="row_culture_label">Kultura: %s</string>
+    <string name="row_moisture_label">Vlažnost: %d%%</string>
+
+    <string name="btn_watering_start">Započni zalivanje</string>
+    <string name="btn_watering_stop">Zaustavi zalivanje</string>
+
+    <string name="title_catalog">Katalog Kultura</string>
+    <string name="title_edit_kultura">Uredi Kulturu</string>
+
+    <string name="label_kultura_name">Naziv Kulture:</string>
+    <string name="label_moisture_min">Minimalna vlažnost (%):</string>
+    <string name="label_moisture_max">Ciljna vlažnost (%):</string>
+    <string name="label_max_watering">Maksimalno trajanje zalivanja (s):</string>
+    <string name="label_resting_period">Pauza između zalivanja (min):</string>
+
+    <string name="btn_save">Sačuvaj</string>
+    <string name="msg_factory_profile">Fabrički profil (Naziv je zaključan)</string>
+    <string name="msg_custom_profile">Korisnički profil</string>
+    <string name="toast_saved">Promene uspešno sačuvane!</string>
+
+    <string name="title_analytics">Analitika i Istorija</string>
+    <string name="label_select_zone">Izaberi zonu (red):</string>
+    <string name="label_select_period">Izaberi vremenski period X:</string>
+
+    <string name="period_24h">Poslednja 24 sata</string>
+    <string name="period_7days">Poslednjih 7 dana</string>
+    <string name="period_30days">Poslednjih 30 dana</string>
+
+    <string name="msg_loading_chart">Učitavanje podataka za period X...</string>
+    <string name="msg_chart_empty">Nema očitavanja za izabrani period.</string>
+
+    <string name="label_global_temp">Temperatura vazduha: %s °C</string>
+    <string name="label_global_humidity">Vlažnost vazduha: %d%%</string>
+    <string name="label_water_level">Nivo vode u rezervoaru:</string>
+    <string name="label_soil_type">Zemljište: %s</string>
+
+    <string name="soil_type_ilovaca">Ilovača</string>
+
+    <string name="btn_watering_active">ZALIJ</string>
+    <string name="btn_watering_running">ZAUSTAVI</string>
+
+    <string name="reason_resting_period">Zalivanje onemogućeno: Tlo u periodu odmora (Preostalo: %d min)</string>
+    <string name="reason_quarantine">KRIZA: Zona u karantinu (Kvar senzora/ventila!)</string>
+    <string name="reason_empty_tank">Zalivanje onemogućeno: Rezervoar je prazan!</string>
+
+    <string name="title_configurator">Konfigurator Bašte</string>
+    <string name="label_enter_rows">Unesite ukupan broj redova u bašti:</string>
+    <string name="hint_row_count">Npr. 5</string>
+    <string name="btn_generate_rows">Generiši redove</string>
+
+    <string name="label_config_row_title">Red br. %d</string>
+    <string name="label_assigned_culture">Zasađeno: %s</string>
+    <string name="label_no_culture">Klikni za dodelu kulture</string>
+
+    <string name="title_select_culture">Izaberi kulturu za ovaj red</string>
+    <string name="btn_cancel">Otkaži</string>
+    <string name="toast_config_success">Bašta je uspešno rekonfigurisana na %d redova!</string>
+    <string name="toast_culture_linked">Red %1$d je povezan sa kulturom %2$s. Pravila poslata kontroleru!</string>
+
+    <string name="legend_soil_moisture">Vlažnost zemljišta (%)</string>
+    <string name="legend_air_temp">Temperatura vazduha (°C)</string>
+    <string name="analytics_interpretation_hint">Savet: Uporedite skokove temperature sa padom vlage u zemlji.</string>
+
+    <string name="btn_period_24h">24h</string>
+    <string name="btn_period_7d">7 dana</string>
+    <string name="btn_period_30d">30 dana</string>
+    <string name="btn_period_custom">Kalendar</string>
+
+    <string name="label_date_from">OD: %s</string>
+    <string name="label_date_to">DO: %s</string>
+    <string name="toast_custom_range">Izabran opseg: od %1$s do %2$s</string>
+
+    <string name="cb_show_temperature">Prikaži temperaturu vazduha (pomoćna kriva)</string>
+
+    <string name="no_data_state_title">Nedovoljno podataka za izabrani period.</string>
+    <string name="no_data_state_desc">Prikazujemo očitavanja od momenta aktivacije senzora (pre %s).</string>
+    <string name="tooltip_title">Detalji o zalivanju:</string>
+    <string name="tooltip_duration">Trajanje: %d sekundi</string>
+    <string name="tooltip_trigger">Pokretač: %s</string>
+
+    <string name="title_catalog_manager">Katalog kultura</string>
+    <string name="label_moisture_range">Vlažnost: %1$.0f%% - %2$.0f%%</string>
+    <string name="tag_system_profile">Fabrički sistem</string>
+    <string name="tag_custom_profile">Korisnički profil</string>
+    <string name="btn_add_new_culture">DODAJ NOVU KULTURU</string>
+    <string name="dialog_delete_title">Brisanje kulture</string>
+    <string name="dialog_delete_msg">Da li ste sigurni? Povezani redovi bašte biće vraćeni na fabrički profil.</string>
+    <string name="toast_deleted">Kultura obrisana, povezani redovi bezbedno prebačeni.</string>
+
+    <string name="title_add_culture">Nova kultura</string>
+    <string name="title_edit_culture">Izmena kulture</string>
+    <string name="label_culture_name">Naziv kulture</string>
+    <string name="label_moisture_range_slider">Opseg vlažnosti zemljišta (MIN - MAX)</string>
+    <string name="hint_seconds">npr. 30 (Maks. 600s)</string>
+    <string name="label_cooldown_interval">Interval odmora ventila (minuti)</string>
+    <string name="hint_minutes">npr. 15 (5 - 1440 min)</string>
+    <string name="btn_save_settings">SAČUVAJ PARAMETRE</string>
+
+    <string name="error_empty_name">Naziv kulture ne može biti prazan!</string>
+    <string name="error_watering_duration">Trajanje zalivanja mora biti između 1 i 600 sekundi!</string>
+    <string name="error_cooldown_interval">Interval odmora mora biti između 5 i 1440 minuta!</string>
+    <string name="toast_save_success">Parametri uspešno sačuvani u lokalnoj bazi.</string>
+
+    <string name="toast_insert_success">Uspešno kreirana nova kultura: %s</string>
+    <string name="toast_cow_success">Fabrički profil zaštićen! Kreirana vaša verzija kulture: %s</string>
+
+    <string name="channel_critical_title">Kritični Alarmi (Failsafe i Curenje)</string>
+    <string name="channel_critical_desc">Hitna obaveštenja o kvarovima hardvera i blokadama sistema.</string>
+    <string name="channel_warning_title">Upozorenja (Nivo vode i Senzori)</string>
+    <string name="channel_warning_desc">Obaveštenja o niskom nivou vode i offline senzorima.</string>
+
+    <string name="title_sensor_offline">Sensor Offline</string>
+    <string name="msg_sensor_offline">Senzor u Zoni 1 nije poslao podatke 2 ciklusa!</string>
+
+    <string name="title_watering_failsafe">Watering Failsafe (SWR-4.5)</string>
+    <string name="msg_watering_failsafe">Vlažnost ne raste nakon 60s zalivanja! Zona 1 je blokirana.</string>
+
+    <string name="title_leak_detected">Leak Detected!</string>
+    <string name="msg_leak_detected">Detektovan pad nivoa vode noću bez aktivacije ventila! Sistem blokiran.</string>
+
+    <string name="banner_quarantine">ZONA U KARANTINU</string>
+    <string name="desc_quarantine">Detektovan Watering Failsafe kvar. Proverite fizičko zapušenje ili pucanje cevi.</string>
+    <string name="btn_resolve_fault">Potvrdi rešenje kvara</string>
+    <string name="toast_zone_unlocked">Komanda za deblokadu poslata kontroleru. Zona ponovo aktivna.</string>
+
+    <string name="menu_logs">Logovi sistema</string>
+
+    <string name="title_activity_logs">Najnovija dešavanja i naredbe</string>
+
+    <string name="btn_clear_logs">Obriši istoriju</string>
+    <string name="toast_logs_cleared">Istorija logova je uspešno očišćena.</string>
+
+    <string name="label_sun_intensity">Jačina sunčeve svetlosti:</string>
+    <string name="label_roof_status">Stanje krova:</string>
+    <string name="roof_status_opened">OTVOREN</string>
+    <string name="roof_status_closed">ZATVOREN</string>
+
+    <string name="btn_roof_open">Otvori krov</string>
+    <string name="btn_roof_close">Zatvori krov</string>
+    <string name="btn_roof_opening">Otvaranje...</string>
+    <string name="btn_roof_closing">Zatvaranje...</string>
+
+    <string name="title_activity_settings">Podešavanja sistema</string>
+    <string name="section_network_title">Mrežna konfiguracija</string>
+    <string name="hint_ip_address">IP adresa kontrolera (npr. 192.168.1.50)</string>
+    <string name="section_thresholds_title">Kritični pragovi vlažnosti</string>
+    <string name="hint_min_moisture">Minimalna vlažnost za zalivanje (%)</string>
+    <string name="toast_settings_saved">Podešavanja su uspešno sačuvana u memoriju.</string>
+
+    <string-array name="tipovi_zemljista">
+        <item>Peskovito zemljište</item>
+        <item>Ilovača</item>
+        <item>Glinovito zemljište</item>
+        <item>Humusno zemljište</item>
+    </string-array>
 </resources>
