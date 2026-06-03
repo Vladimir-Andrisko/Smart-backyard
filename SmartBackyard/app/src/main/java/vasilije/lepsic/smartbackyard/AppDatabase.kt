@@ -12,9 +12,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LogEntity::class,
         KulturaEntity::class,
         RedBasteEntity::class,
-        SenzorskoOcitavanjeEntity::class
+        SenzorskoOcitavanjeEntity::class,
+        RedBasteStatusEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

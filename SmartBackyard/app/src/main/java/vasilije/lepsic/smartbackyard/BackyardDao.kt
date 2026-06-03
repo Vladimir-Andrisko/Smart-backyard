@@ -35,6 +35,15 @@ interface BackyardDao {
     @Query("DELETE FROM redovi_baste")
     suspend fun deleteAllRedovi()
 
+    @Query("SELECT * FROM redovi_baste_status")
+    suspend fun getAllRedoviStatus() : List<RedBasteStatusEntity>
+
+    @Query("SELECT * FROM redovi_baste_status WHERE red_id_ref = :id")
+    suspend fun getRedStatusByRedId(id : Int) : RedBasteStatusEntity
+
+    @Insert
+    suspend fun insertRedStatus(status : RedBasteStatusEntity) : Long
+
 
     // --- UPITI ZA VREMENSKE SERIJE (MONITORING ZA PERIOD X) ---
     @Insert
