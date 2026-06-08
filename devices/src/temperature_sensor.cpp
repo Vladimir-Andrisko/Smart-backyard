@@ -58,7 +58,7 @@ int main(int argc, char* argv[]){
 	mosquitto_lib_init();
 	mosq = mosquitto_new("temperature_sensor", true, NULL);
 
-	rc = mosquitto_connect(mosq, ip.c_str(), 1883, keepAlive);
+	rc = mosquitto_connect(mosq, "0.0.0.0", 1883, keepAlive);
 	if(rc != 0){
 		printf("Client could not connect to broker! Error Code: %d\n, ip: %s", rc, ip.c_str());
 		mosquitto_destroy(mosq);

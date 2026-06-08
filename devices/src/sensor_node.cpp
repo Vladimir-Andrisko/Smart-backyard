@@ -44,7 +44,7 @@ int main(int argc, char* argv[]){
 
 	mosq = mosquitto_new("publisher-test", true, NULL);
 
-	rc = mosquitto_connect(mosq, "localhost", 1883, 60);
+	rc = mosquitto_connect(mosq, "0.0.0.0", 1883, 60);
 	if(rc != 0){
 		printf("Client could not connect to broker! Error Code: %d\n", rc);
 		mosquitto_destroy(mosq);
