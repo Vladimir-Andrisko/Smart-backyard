@@ -32,7 +32,7 @@ struct Device{
 };
 
 static constexpr int SOCKET_TIMEOUT = 1;
-static constexpr int SEARCH_TIMEOUT = 30;
+static constexpr int SEARCH_TIMEOUT = 60;
 static constexpr int EXPIRE_TIMEOUT = 1; 
 static constexpr int RECONNECT_COOLDOWN = 10;
 
@@ -50,7 +50,6 @@ private:
     void loadWhitelist(const std::string& path);
 
     std::map<std::string, Device> device_dict;
-    // used to ignore stale packets from disconnecting devices
     std::map<std::string, std::chrono::steady_clock::time_point> device_reconnect_cooldowns;
     std::unordered_set<std::string> whitelist;
 
@@ -79,6 +78,8 @@ public:
 
     void updateDevice(Device &dev);
     void removeDevice(const std::string &uuid);
+
+    void getAvailableDevices();
 
     void start();
     void stop();

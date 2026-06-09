@@ -19,7 +19,7 @@
 
 #include "json.hpp"
 
-static constexpr int NOTIFY_TIMEOUT = 2;
+static constexpr int NOTIFY_TIMEOUT = 30;
 static constexpr int SOCKET_TIMEOUT = 1;
 static constexpr int BUFFER_SIZE = 1024;
 

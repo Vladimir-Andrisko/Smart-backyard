@@ -26,19 +26,17 @@ void handleSignal(int){
 
 int main(int argc, char* argv[]){
     std::signal(SIGINT, handleSignal);
-    string ip;
     std::atomic<bool> running(true);
     int rc;
 	struct mosquitto *mosq;
     string topic;
 
     try{
-        if (argc >= 3)
+        if (argc >= 2)
             ssdp = new SSDPDevice(argv[1], 5);
         else
             ssdp = new SSDPDevice("1", "humidity_sensor", "config/sensor/humidity_sensor_desc.json", 5);
 
-        ip = argv[2];
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
@@ -57,7 +55,7 @@ int main(int argc, char* argv[]){
 
 	rc = mosquitto_connect(mosq, "0.0.0.0", 1883, keepAlive);
 	if(rc != 0){
-		printf("Client could not connect to broker! Error Code: %d\n, ip: %s", rc, ip.c_str());
+		printf("Client could not connect to broker! Error Code: %d\n", rc);
 		mosquitto_destroy(mosq);
 		return -1;
 	}

@@ -1,9 +1,9 @@
 {
-    "uuid": "1:humidity_sensor",
+    "uuid": "1::humidity_sensor",
     "group": "global",
     "topic": "garden/global/sensor/humidity_sensor",
 
-    "humidityService" : {
+    "Service" : {
         "State" : "ON/OFF/UNREACHABLE",
         "Humidity" : "0~100|r"
     }

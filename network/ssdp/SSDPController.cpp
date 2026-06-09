@@ -247,8 +247,6 @@ Device SSDPController::parseMessage(const std::string &msg){
     dev.st = find("ST: ");
 
     std::string temp = find("CACHE-CONTROL: max-age=");
-    std::string debug = "\nParsed msg from device: \nUUID: " + dev.uuid + "\nLOCATION: " + dev.location + "\nST: " + dev.st + "\nMAX-AGE: " + temp + "\n\n";
-    safeCout(debug);
 
     try {
         dev.maxAge = std::stoi(temp);
@@ -274,5 +272,11 @@ void SSDPController::loadWhitelist(const std::string& path)
 
     for(int i = 0; i < list.size(); i++){
         whitelist.insert(list.array(i).as_string());
+    }
+}
+
+void SSDPController::getAvailableDevices(){
+    for(auto &pair : device_dict){
+        safeCout(pair.first + "\n\n");
     }
 }

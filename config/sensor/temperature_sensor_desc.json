@@ -1,9 +1,10 @@
 {
-    "uuid": "1:temperature_sensor",
+    "uuid": "1::temperature_sensor",
     "group": "global",
+    "topic": "garden/global/sensor/temperature_sensor",
 
-    "TemperatureService":  {
-        "state": "ON/OFF/UNREACHABLE",
+    "Service":  {
+        "State": "ON/OFF/UNREACHABLE",
         "temperature": "-50~50|r"
     }
 }

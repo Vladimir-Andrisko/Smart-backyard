@@ -16,15 +16,22 @@ namespace HTTPServer{
 
             try
             {
-                std::ifstream file(location);
+                std::string stateLocation = location;
+
+                size_t pos = stateLocation.rfind("_desc.json");
+                if(pos != std::string::npos){
+                    stateLocation.replace(pos, 10, "_state.json");
+                }
+                std::ifstream file(stateLocation);
                 if(!file.is_open())
-                    throw std::runtime_error("Can't open file: " + location);
+                    throw std::runtime_error("Can't open file: " + stateLocation);
 
                 std::stringstream buffer;
                 buffer << file.rdbuf();
                 file.close();
 
                 json::jobject obj = json::jobject::parse(buffer.str().c_str());
+
                 json::jobject service = (obj[DEVICE_SERVICE_SUBTREE]);
                 return service[key];
             }
@@ -54,9 +61,16 @@ namespace HTTPServer{
 
         try
         {
-            std::ifstream file(location);
+            std::string stateLocation = location;
+
+            size_t pos = stateLocation.rfind("_desc.json");
+            if(pos != std::string::npos){
+                stateLocation.replace(pos, 10, "_state.json");
+            }
+
+            std::ifstream file(stateLocation);
             if(!file.is_open())
-                throw std::runtime_error("Can't open file: " + location);
+                throw std::runtime_error("Can't open file: " + stateLocation);
 
             std::stringstream buffer;
             buffer << file.rdbuf();
@@ -91,9 +105,16 @@ namespace HTTPServer{
 
         try
         {
-            std::ifstream file(location);
+            std::string stateLocation = location;
+
+            size_t pos = stateLocation.rfind("_desc.json");
+            if(pos != std::string::npos){
+                stateLocation.replace(pos, 10, "_state.json");
+            }
+
+            std::ifstream file(stateLocation);
             if(!file.is_open())
-                throw std::runtime_error("Can't open file: " + location);
+                throw std::runtime_error("Can't open file: " + stateLocation);
 
             std::stringstream buffer;
             buffer << file.rdbuf();
@@ -101,7 +122,7 @@ namespace HTTPServer{
 
             json::jobject obj = json::jobject::parse(buffer.str().c_str());
             obj[key] = value;
-            std::ofstream outputFile(location);
+            std::ofstream outputFile(stateLocation);
             outputFile << obj.pretty();
             outputFile.close();
             return true;
@@ -132,9 +153,16 @@ namespace HTTPServer{
 
         try
         {
-            std::ifstream file(location);
+            std::string stateLocation = location;
+
+            size_t pos = stateLocation.rfind("_desc.json");
+            if(pos != std::string::npos){
+                stateLocation.replace(pos, 10, "_state.json");
+            }
+
+            std::ifstream file(stateLocation);
             if(!file.is_open())
-                throw std::runtime_error("Can't open file: " + location);
+                throw std::runtime_error("Can't open file: " + stateLocation);
 
             std::stringstream buffer;
             buffer << file.rdbuf();
@@ -142,9 +170,11 @@ namespace HTTPServer{
 
             json::jobject obj = json::jobject::parse(buffer.str().c_str());
             json::jobject service = (obj[DEVICE_SERVICE_SUBTREE]);
+            
             service[key] = value;
             obj[DEVICE_SERVICE_SUBTREE] = service;
-            std::ofstream outputFile(location);
+
+            std::ofstream outputFile(stateLocation);
             outputFile << obj.pretty();
             outputFile.close();
             return true;

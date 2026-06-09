@@ -20,17 +20,18 @@ void handleSignal(int)
     std::exit(0);
 }
 
+void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg) {
+	printf("New message with topic %s: %s\n", msg->topic, (char *) msg->payload);
+}
+
 void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 	printf("ID: %d\n", * (int *) obj);
 	if(rc) {
 		printf("Error with result code: %d\n", rc);
 		exit(-1);
 	}
-	mosquitto_subscribe(mosq, NULL, "garden/global/sensor/humidity_sensor", 0);
-}
-
-void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg) {
-	printf("New message with topic %s: %s\n", msg->topic, (char *) msg->payload);
+	mosquitto_subscribe(mosq, NULL, "garden/global/#", 0);
+	mosquitto_message_callback_set(mosq, on_message);
 }
 
 int main(){
@@ -55,7 +56,7 @@ int main(){
 
 	mosq = mosquitto_new("subscribe-test", true, &id);
 	mosquitto_connect_callback_set(mosq, on_connect);
-	mosquitto_message_callback_set(mosq, on_message);
+	
 	
 	rc = mosquitto_connect(mosq, "0.0.0.0", 1883, 10);
 	if(rc) {
@@ -66,9 +67,10 @@ int main(){
 
 	mosquitto_loop_start(mosq);
 	printf("Press Enter to quit...\n");
-	getchar();
-	mosquitto_loop_stop(mosq, true);
 
+	getchar();
+	ssdp->getAvailableDevices();
+	mosquitto_loop_stop(mosq, true);
 	mosquitto_disconnect(mosq);
 	mosquitto_destroy(mosq);
 	mosquitto_lib_cleanup();
