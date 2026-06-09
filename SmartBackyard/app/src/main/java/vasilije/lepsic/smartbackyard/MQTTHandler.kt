@@ -2,6 +2,7 @@ package vasilije.lepsic.smartbackyard
 
 import android.content.Context
 import android.util.Log
+import org.eclipse.paho.client.mqttv3.MqttCallback
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttException
@@ -15,10 +16,11 @@ class MQTTHandler {
         fun mainLoop() {
             if (!isConnected())
                 connect()
+
             //Keep alive signal
-            val msg = MqttMessage(("Test alive message").encodeToByteArray())
+            val msg = MQTTFactory.createMessage("uuid:1::app", keepAliveQOS)
             msg.qos = keepAliveQOS
-            publish("test/t1", msg)
+            publish("garden/app/alive", msg)
         }
 
         fun connect() : Boolean {
@@ -29,16 +31,23 @@ class MQTTHandler {
                 mqttClient = MqttClient("tcp://$ipAddress:1883", getClientId(), persistence)
                 getOptions().isCleanSession = true
                 mqttClient!!.connect(options)
+                subscribe("garden/global/actuator/roof/status")
+                subscribe("garden/global/sensor/reservoir")
+                subscribe("garden/global/sensor/humidity")
+                subscribe("garden/global/sensor/luminosity")
+                for (i in 1..10) {
+                    subscribe("garden/row${i}/sensor")
+                    subscribe("garden/row${i}/actuator")
+                }
                 true
             } catch  (e : MqttException) {
-                Log.d("MQTT Handler", "MQTT handler exception: ${e.cause?.toString()}")
                 false
             }
         }
 
         fun grabSavedIp(context : Context) : String {
             val sharedPreferences = context.getSharedPreferences("SmartBackyardPrefs", Context.MODE_PRIVATE)
-            return sharedPreferences.getString("ip_address", "192.168.100.39")!!
+            return sharedPreferences.getString("ip_address", "vlada.local")!!
         }
 
         fun disconnect() {
@@ -66,12 +75,23 @@ class MQTTHandler {
             this.clientId = clientId
         }
 
+        fun setCallback(callback : MqttCallback) {
+            if (isConnected())
+                mqttClient?.setCallback(callback)
+        }
+
+        fun clearCallback() {
+            if (mqttClient != null)
+                mqttClient?.setCallback(null)
+        }
+
         fun isConnected() : Boolean {
             return mqttClient != null && mqttClient!!.isConnected
         }
 
         fun publish(topic : String, message : MqttMessage) {
-            mqttClient?.publish(topic, message)
+            if (isConnected())
+                mqttClient?.publish(topic, message)
         }
 
         fun subscribe(topic : String) {

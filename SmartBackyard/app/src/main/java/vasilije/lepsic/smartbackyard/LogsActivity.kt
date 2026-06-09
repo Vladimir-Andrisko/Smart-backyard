@@ -10,6 +10,14 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
+suspend fun addLog(database: AppDatabase, component: String, message: String) {
+    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy. HH:mm:ss")
+    val timestamp = LocalDateTime.now().format(formatter)
+    database.logDao().ubaciLog(LogEntity(timestamp = timestamp, komponenta = component, poruka = message))
+}
 
 class LogsActivity : AppCompatActivity() {
 
@@ -76,7 +84,7 @@ class LogsActivity : AppCompatActivity() {
 
                 // Ako je baza skroz prazna (npr. prvo pokretanje), napuni je tvojim inicijalnim logovima
                 if (trenutniLogovi.isEmpty()) {
-                    nahraniBazuInicijalnimPodacima()
+                    //nahraniBazuInicijalnimPodacima()
                     // Ponovo povlačimo podatke nakon uspešnog upisa
                     trenutniLogovi = baza.logDao().dohvatiSveLogove()
                 }
@@ -98,7 +106,7 @@ class LogsActivity : AppCompatActivity() {
     /**
      * Pomoćna suspend funkcija koja inicijalno puni SQLite tabelu tvojim predefinisanim IoT logovima.
      */
-    private suspend fun nahraniBazuInicijalnimPodacima() {
+    /*private suspend fun nahraniBazuInicijalnimPodacima() {
         withContext(Dispatchers.IO) {
             baza.logDao().ubaciLog(LogEntity(timestamp = "30.05.2026. 11:45:12", komponenta = "KONTROLER", poruka = "Primljena naredba za deblokadu Zone 1."))
             baza.logDao().ubaciLog(LogEntity(timestamp = "30.05.2026. 11:30:00", komponenta = "KROV", poruka = "Elektro-motor aktiviran. Pokrenuto zatvaranje krova."))
@@ -116,5 +124,5 @@ class LogsActivity : AppCompatActivity() {
             baza.logDao().ubaciLog(LogEntity(timestamp = "28.05.2026. 23:58:12", komponenta = "SISTEM", poruka = "Kreiran automatski lokalni backup baze podataka."))
             baza.logDao().ubaciLog(LogEntity(timestamp = "28.05.2026. 18:45:50", komponenta = "KONTROLER", poruka = "Registrovana promena mrežnog režima rada (Prebačeno na lokalni rad)."))
         }
-    }
+    }*/
 }

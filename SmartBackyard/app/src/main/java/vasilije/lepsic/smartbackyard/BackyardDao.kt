@@ -41,6 +41,12 @@ interface BackyardDao {
     @Query("SELECT * FROM redovi_baste_status WHERE red_id_ref = :id")
     suspend fun getRedStatusByRedId(id : Int) : RedBasteStatusEntity
 
+    @Query("UPDATE redovi_baste_status SET `open` = :isOpen WHERE red_id_ref = :id")
+    suspend fun setRedStatus(id: Int, isOpen : Boolean)
+
+    @Query("UPDATE redovi_baste_status SET `soil_moisture` = :moisture WHERE red_id_ref = :id")
+    suspend fun setRedMoisture(id: Int, moisture : Int)
+
     @Insert
     suspend fun insertRedStatus(status : RedBasteStatusEntity) : Long
 

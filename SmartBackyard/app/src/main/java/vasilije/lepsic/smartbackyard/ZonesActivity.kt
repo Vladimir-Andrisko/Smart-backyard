@@ -8,14 +8,22 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.eclipse.paho.client.mqttv3.MqttMessage
+
+object ZonesActivityInstanceHolder {
+    private var activity : ZonesActivity? = null
+    fun getZonesActivity() : ZonesActivity? {
+        return activity
+    }
+
+    fun setZonesActivity(activity: ZonesActivity?) {
+        this.activity = activity
+    }
+}
 
 class ZonesActivity : AppCompatActivity() {
 
@@ -32,13 +40,68 @@ class ZonesActivity : AppCompatActivity() {
     private lateinit var btnRoofAction: Button
 
     private lateinit var baza: AppDatabase
+    private lateinit var redKontrola : LinearLayout
     private var isRoofOpened = false
+    private lateinit var tvAirTemperature: TextView
+
+    /*private val rowRegexSensor = Regex("""garden/row(10|[1-9])/sensor""")
+    private val rowRegexActuator = Regex("""garden/row(10|[1-9])/actuator""")*/
+
+    /*override fun onDestroy() {
+        super.onDestroy()
+        MQTTHandler.clearCallback()
+    }*/
+
+    override fun onDestroy() {
+        super.onDestroy()
+        ZonesActivityInstanceHolder.setZonesActivity(null)
+    }
+
+    fun azurirajUITemperatureVazduha(temp: Int) {
+        tvAirTemperature.text = getString(R.string.degree_format, temp)
+        tvAirTemperature.setTextColor(
+            getColor(
+                when {
+                    temp > 45 -> R.color.dark_red
+                    temp > 35 -> R.color.red
+                    temp > 27 -> R.color.orange
+                    temp > 20 -> R.color.yellow
+                    temp > 10 -> R.color.green
+                    temp > 0 -> R.color.light_green
+                    else -> R.color.light_blue
+                }
+            )
+        )
+    }
+
+    fun updateUI() {
+        val db = AppDatabase.getInstance(this)
+        lifecycleScope.launch {
+            withContext(Dispatchers.Main) {
+                azurirajUIKrova(db.globalStatusDao().getRoofStatus() == "OPEN")
+                azurirajNivoVode(db.globalStatusDao().getWaterLevel())
+                azurirajUIZaSunce(db.globalStatusDao().getLuminosity())
+                azurirajUITemperatureVazduha(db.globalStatusDao().getAirTemperature())
+                azurirajGlobalnaVlaznostVazduha(db.globalStatusDao().getHumidity())
+                val redovi = db.backyardDao().getAllRedovi()
+                val redoviStatus = db.backyardDao().getAllRedoviStatus()
+                for (i in redovi.indices) {
+                    val red = redovi[i]
+                    val redStatus = redoviStatus[i]
+                    azurirajStatusDugmetaNaKartici(red.redId, redStatus.open)
+                    azurirajVlaguZemljistaNaKartici(red.redId, redStatus.soilMoisture)
+                }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_zones)
+        ZonesActivityInstanceHolder.setZonesActivity(this)
 
         baza = AppDatabase.getInstance(this)
+        tvAirTemperature = findViewById(R.id.airTemperature)
 
         btnBack = findViewById(R.id.btnBack)
         containerRows = findViewById(R.id.containerRows)
@@ -66,14 +129,13 @@ class ZonesActivity : AppCompatActivity() {
             tvGlobalTemp.text = "Tip zemljišta: $tipZemljista"
         }
 
-        pretplatiSeNaMqttSenzore()
-
         btnRoofAction.setOnClickListener {
             posaljiKrovuMqttKomandu()
         }
 
         // Učitaj redove iz baze i napravi kartice
         ucitajIPrivkazujRedove()
+        updateUI()
     }
 
     // -------------------------------------------------------------------------
@@ -179,7 +241,7 @@ class ZonesActivity : AppCompatActivity() {
         }
 
         // Red sa statusom ventila i dugmetom
-        val redKontrola = LinearLayout(this).apply {
+        redKontrola = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -188,6 +250,7 @@ class ZonesActivity : AppCompatActivity() {
         val tvStatus = TextView(this).apply {
             text = "● ZATVOREN"
             textSize = 13f
+            tag = "tvStatus_red${red.redId}"
             setTextColor(Color.parseColor("#E74C3C"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
@@ -198,6 +261,7 @@ class ZonesActivity : AppCompatActivity() {
 
         val btnZalij = Button(this).apply {
             text = "ZALIJ"
+            tag = "btnZalij_${red.redId}"
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#3498DB"))
             textSize = 13f
@@ -211,12 +275,18 @@ class ZonesActivity : AppCompatActivity() {
 
                 if (zalivanjAktivno) {
                     MQTTHandler.publish(topik, MQTTFactory.createMessage("OPEN", MQTTHandler.valveQOS))
+                    lifecycleScope.launch {
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", "OPEN")
+                    }
                     tvStatus.text = "● AKTIVNO"
                     tvStatus.setTextColor(Color.parseColor("#2ECC71"))
                     text = "PRESTANI"
                     setBackgroundColor(Color.parseColor("#E74C3C"))
                 } else {
                     MQTTHandler.publish(topik, MQTTFactory.createMessage("CLOSE", MQTTHandler.valveQOS))
+                    lifecycleScope.launch {
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", "CLOSE")
+                    }
                     tvStatus.text = "● ZATVOREN"
                     tvStatus.setTextColor(Color.parseColor("#E74C3C"))
                     text = "ZALIJ"
@@ -263,26 +333,46 @@ class ZonesActivity : AppCompatActivity() {
         tvVlaga?.text = "Vlažnost zemljišta: $procenat%"
     }
 
+    fun azurirajStatusDugmetaNaKartici(redId: Int, zalivanjAktivno: Boolean) {
+        val tvStatus = containerRows.findViewWithTag<TextView>("tvStatus_$redId")
+        val btnZalij = containerRows.findViewWithTag<Button>("btnZalij_$redId")
+        if (zalivanjAktivno) {
+            tvStatus.text = "● AKTIVNO"
+            tvStatus.setTextColor(Color.parseColor("#2ECC71"))
+            btnZalij.text = "PRESTANI"
+            btnZalij.setBackgroundColor(Color.parseColor("#E74C3C"))
+        } else {
+            tvStatus.text = "● ZATVOREN"
+            tvStatus.setTextColor(Color.parseColor("#E74C3C"))
+            btnZalij.text = "ZALIJ"
+            btnZalij.setBackgroundColor(Color.parseColor("#3498DB"))
+        }
+    }
+
     // -------------------------------------------------------------------------
     // MQTT (stubovi - popuniti kada se implementira MqttHelper)
     // -------------------------------------------------------------------------
 
-    private fun pretplatiSeNaMqttSenzore() {
+   // private fun pretplatiSeNaMqttSenzore() {
         // basta/global/senzor/kolicinaSvetlosti  → azurirajUIZaSunce(Int)
         // basta/global/aktuator/krov/status      → azurirajUIKrova(Boolean)
         // basta/global/senzor/rezervoar          → azurirajNivoVode(Int)
         // basta/global/senzor/vlaznostVazduha    → azurirajGlobalnaVlaznostVazduha(Int)
         // basta/red{id}/senzor/vlaga             → azurirajVlaguZemljistaNaKartici(redId, Int)
         // basta/red{id}/aktuator/ventil/status   → ažurira tvStatus na kartici
-    }
+    //}
 
     private fun posaljiKrovuMqttKomandu() {
         val topik = "garden/global/actuator/roof"
         val payload = if (!isRoofOpened) "OPEN" else "CLOSE"
         MQTTHandler.publish(topik, MQTTFactory.createMessage(payload, MQTTHandler.roofQOS))
+        val db = AppDatabase.getInstance(this)
+        lifecycleScope.launch {
+            addLog(db,"ROOF", payload)
+        }
         btnRoofAction.text = if (!isRoofOpened) "Otvaranje..." else "Zatvaranje..."
         btnRoofAction.isEnabled = false
-        lifecycleScope.launch {
+        /*lifecycleScope.launch {
             withContext(Dispatchers.Main) {
                 btnRoofAction.setBackgroundColor(Color.parseColor("#D3D3D3"))
             }
@@ -292,7 +382,7 @@ class ZonesActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 azurirajUIKrova(isRoofOpened)
             }
-        }
+        }*/
     }
 
     private fun azurirajUIZaSunce(procenat: Int) {

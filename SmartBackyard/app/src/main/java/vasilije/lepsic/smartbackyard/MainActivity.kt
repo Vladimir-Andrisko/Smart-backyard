@@ -2,7 +2,6 @@ package vasilije.lepsic.smartbackyard
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -15,7 +14,10 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
+import org.eclipse.paho.client.mqttv3.MqttCallback
 import org.eclipse.paho.client.mqttv3.MqttException
+import org.eclipse.paho.client.mqttv3.MqttMessage
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,6 +36,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var menuItemConfigurator: TextView
     private lateinit var menuItemLogs: TextView // PROMENJENO: Umesto drone
     private lateinit var menuItemSettings: TextView
+
+    private val rowRegexSensor = Regex("""garden/row(10|[1-9])/sensor""")
+    private val rowRegexActuator = Regex("""garden/row(10|[1-9])/actuator""")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,21 +128,92 @@ class MainActivity : AppCompatActivity() {
         }
 
         onBackPressedDispatcher.addCallback(callback)
+        val db = AppDatabase.getInstance(this)
+        lifecycleScope.launch {
+            if (!db.globalStatusDao().hasData())
+                db.globalStatusDao().initializeColumn()
+        }
+        MQTTHandler.setCallback(object : MqttCallback {
+            override fun connectionLost(cause: Throwable?) {
+
+            }
+
+            override fun messageArrived(topic: String?, message: MqttMessage?) {
+                if (topic == null || message == null)
+                    return
+
+                // basta/global/senzor/kolicinaSvetlosti  → azurirajUIZaSunce(Int)
+                // basta/global/aktuator/krov/status      → azurirajUIKrova(Boolean)
+                // basta/global/senzor/rezervoar          → azurirajNivoVode(Int)
+                // basta/global/senzor/vlaznostVazduha    → azurirajGlobalnaVlaznostVazduha(Int)
+                // basta/red{id}/senzor/vlaga             → azurirajVlaguZemljistaNaKartici(redId, Int)
+                // basta/red{id}/aktuator/ventil/status   → ažurira tvStatus na kartici
+
+                val sensorMatch = rowRegexSensor.matchEntire(topic)
+                val actuatorMatch = rowRegexActuator.matchEntire(topic)
+
+                if (topic == "garden/global/actuator/roof/status") {
+                    /*btnRoofAction.isEnabled = true
+                    isRoofOpened = (message.toString().trim() == "OPEN")
+                    azurirajUIKrova(isRoofOpened)*/
+                    lifecycleScope.launch {
+                        db.globalStatusDao().setRoofStatus(message.toString().trim())
+                    }
+                } else if (topic == "garden/global/sensor/luminosity") {
+                    //azurirajUIZaSunce(Integer.parseInt(message.toString()))
+                    lifecycleScope.launch {
+                        db.globalStatusDao().setLuminosity(Integer.parseInt(message.toString()))
+                    }
+                } else if (topic == "garden/global/sensor/humidity") {
+                    //azurirajGlobalnaVlaznostVazduha(Integer.parseInt(message.toString()))
+                    lifecycleScope.launch {
+                        db.globalStatusDao().setHumidity(Integer.parseInt(message.toString()))
+                    }
+                } else if (topic == "garden/global/sensor/reservoir") {
+                    //azurirajNivoVode(Integer.parseInt(message.toString()))
+                    lifecycleScope.launch {
+                        db.globalStatusDao().setWaterLevel(Integer.parseInt(message.toString()))
+                    }
+                } else if (sensorMatch != null) {
+                    val rowNumber = sensorMatch.groupValues[1].toInt()
+                    //azurirajVlaguZemljistaNaKartici(rowNumber, Integer.parseInt(message.toString()))
+                    lifecycleScope.launch {
+                        db.backyardDao()
+                            .setRedMoisture(rowNumber, Integer.parseInt(message.toString().trim()))
+                    }
+                } else if (actuatorMatch != null) {
+                    val rowNumber = actuatorMatch.groupValues[1].toInt()
+                    lifecycleScope.launch {
+                        db.backyardDao()
+                            .setRedStatus(rowNumber, message.toString().trim() == "OPEN")
+                    }
+                    //azurirajStatusDugmetaNaKartici(rowNumber, Integer.parseInt(message.toString()) as Boolean)
+                }
+
+                ZonesActivityInstanceHolder.getZonesActivity()?.updateUI()
+            }
+
+            override fun deliveryComplete(token: IMqttDeliveryToken?) {
+            }
+        })
         mqttConnectionTest()
     }
 
     private fun mqttConnectionTest() {
         try {
-            MQTTHandler.setIpAddress(MQTTHandler.grabSavedIp(this@MainActivity))
             MQTTHandler.setClientId("SampleClient")
             lifecycleScope.launch(Dispatchers.IO) {
                 while (true) {
+                    MQTTHandler.setIpAddress(MQTTHandler.grabSavedIp(this@MainActivity))
+                    if (!MQTTHandler.isConnected()) {
+                        MQTTHandler.connect()
+                        continue
+                    }
                     MQTTHandler.mainLoop()
                     delay(10000)
                 }
             }
-        } catch (e: MqttException) {
-            Log.d("MQTT Test", e.cause!!.toString())
+        } catch (_: MqttException) {
         }
     }
 }

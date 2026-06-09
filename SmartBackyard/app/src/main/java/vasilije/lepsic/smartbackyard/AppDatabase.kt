@@ -13,15 +13,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         KulturaEntity::class,
         RedBasteEntity::class,
         SenzorskoOcitavanjeEntity::class,
-        RedBasteStatusEntity::class
+        RedBasteStatusEntity::class,
+        GlobalStatusEntity::class
     ],
-    version = 5,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun logDao(): LogDao
     abstract fun backyardDao(): BackyardDao
+    abstract fun globalStatusDao(): GlobalStatusDao
 
     companion object {
         @Volatile

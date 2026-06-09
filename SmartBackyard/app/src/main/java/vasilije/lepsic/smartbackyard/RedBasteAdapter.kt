@@ -31,6 +31,9 @@ class RedBasteAdapter(
 
         holder.btnDelete.setOnClickListener {
             onDelete(item)
+            val configurator = holder.itemView.context as ConfiguratorActivity
+            configurator.updateRowButtonAvailability(itemCount)
+            configurator.updateRowNames()
         }
     }
 

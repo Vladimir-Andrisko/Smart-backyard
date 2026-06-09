@@ -22,7 +22,7 @@ data class RedBasteEntity(
     val redId: Int = 0,
 
     @ColumnInfo(name = "naziv_reda")
-    val nazivReda: String,
+    var nazivReda: String,
 
     @ColumnInfo(name = "kultura_id_ref")
     val kulturaIdRef: Int? // Ovo polje čuva ID kulture

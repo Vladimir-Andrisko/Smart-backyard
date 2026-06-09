@@ -22,6 +22,16 @@ class ConfiguratorActivity : AppCompatActivity() {
     private lateinit var spinnerZemljiste: Spinner
     private lateinit var btnDodajRed: Button
     private lateinit var btnPotvrdi: Button
+    private val maxRows = 10
+
+    fun updateRowButtonAvailability(rowCount : Int) {
+        btnDodajRed.isEnabled = rowCount < maxRows
+    }
+
+    fun updateRowNames() {
+        for (i in 0 until tempRedovi.size)
+            tempRedovi[i].nazivReda = "Red ${i + 1}"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +82,7 @@ class ConfiguratorActivity : AppCompatActivity() {
                                 kulturaIdRef = odabrana.kulturaId
                             ))
                             adapter.notifyDataSetChanged()
+                            updateRowButtonAvailability(adapter.itemCount)
                         }
                         .show()
                 }
@@ -114,6 +125,7 @@ class ConfiguratorActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
             }
             findViewById<RecyclerView>(R.id.rvRedovi).adapter = adapter
+            updateRowButtonAvailability(adapter.itemCount)
         }
     }
 }

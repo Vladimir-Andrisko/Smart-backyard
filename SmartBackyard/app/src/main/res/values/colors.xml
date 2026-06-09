@@ -10,4 +10,12 @@
     <color name="connection_green">#2ECC71</color>
     <color name="connection_red">#CD5C5C</color>
     <color name="connection_orange">#FFBF00</color>
+
+    <color name="light_blue">#87CEFA</color>
+    <color name="light_green">#90EE90</color>
+    <color name="green">#32CD32</color>
+    <color name="yellow">#FFD700</color>
+    <color name="orange">#FFA500</color>
+    <color name="red">#FF0000</color>
+    <color name="dark_red">#8B0000</color>
 </resources>

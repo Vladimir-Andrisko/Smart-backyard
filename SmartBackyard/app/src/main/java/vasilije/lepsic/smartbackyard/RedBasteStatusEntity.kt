@@ -24,5 +24,8 @@ data class RedBasteStatusEntity(
     val redIDRef : Int,
 
     @ColumnInfo(name = "open")
-    val open : Boolean
+    val open : Boolean,
+
+    @ColumnInfo(name = "soil_moisture")
+    var soilMoisture : Int = 0
 )
