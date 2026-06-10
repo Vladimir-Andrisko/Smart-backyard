@@ -51,10 +51,10 @@ namespace SSDP{
             "EXT:\r\n"
             "LOCATION: " + location + "\r\n"
             "ST: " + deviceType + "\r\n"
+            "NTS: ssdp:discover\r\n"
             "USN: uuid:" + uuid + "\r\n"
             "\r\n";
     }
-
 }
 
 #endif

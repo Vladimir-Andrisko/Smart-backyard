@@ -23,9 +23,9 @@ int main(int argc, char* argv[]){
 
     try{
         if (argc >= 2)
-            ssdp = new SSDPDevice(argv[1], 5);
+            ssdp = new SSDPDevice(argv[1], 2);
         else
-            ssdp = new SSDPDevice("1", "temperature_sensor", "config/sensor/temperature_sensor_desc.json", 10, 5);
+            ssdp = new SSDPDevice("1", "temperature_sensor", "config/sensor/temperature_sensor_desc.json", 10, 2);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]){
         {
             int temperature = generateTemperature();
             string msg = construct_msg(temperature);
-            cout << "\n\nTemperature sensor: \n" << msg << endl;
+            //cout << "\n\nTemperature sensor: \n" << msg << endl;
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
 
             sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME), [&]{return !running.load();});

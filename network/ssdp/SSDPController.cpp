@@ -46,8 +46,8 @@ void SSDPController::livenessCheckLoop()
     while(running){
         auto now = std::chrono::steady_clock::now();
 
-        std::lock_guard<std::mutex> lock(mx);
         {
+            std::lock_guard<std::mutex> lock(mx);
             for (auto & [uuid, dev] : device_dict){
                 auto age = std::chrono::duration_cast<std::chrono::seconds>(now - dev.lastSeen).count();
 
@@ -159,9 +159,10 @@ void SSDPController::listenLoop(){
         }else if(msg.find("ssdp:alive") != std::string::npos){
             updateDevice(dev);
             safeCout("[INFO] Device ALIVE: " + dev.uuid + "\n");
+        }else if(msg.find("ssdp:discover") != std::string::npos){
+            safeCout("[INFO] Device responding to M-search: " + dev.uuid + "\n");
         }
     }
-
 }
 
 void SSDPController::searchLoop(){
@@ -228,9 +229,6 @@ void SSDPController::loadWhitelist(const std::string& path)
 
     for(const auto &item : data["whitelist"])
         whitelist.insert(item.get<std::string>());
-
-    for(auto &w : whitelist)
-        safeCout(w + "\n\n");
 }
 
 

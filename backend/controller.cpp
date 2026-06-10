@@ -77,13 +77,25 @@ int main(){
 	mosquitto_loop_start(mosq);
 
 	printf("Press Enter to quit...\n");
-	getchar();
+	// getchar();
 
-	cout << "Sending message to roof\n\n";
-	int ret = mosquitto_publish(mosq, NULL, "garden/global/actuator/roof_actuator", 17, "Hello controller", 0, false);
-	printf("Publish ret = %d\n", ret);
+	// cout << "Sending message to roof\n\n";
+	// int ret = mosquitto_publish(mosq, NULL, "garden/global/actuator/roof_actuator", 17, "Hello controller", 0, false);
+	// printf("Publish ret = %d\n", ret);
 
 	getchar();
+	vector<Device> devices = ssdp->getAllDevices();
+
+	for(auto &d : devices){
+		cout << d.uuid << "  " << d.maxAge << "  ";
+		if(d.state == DeviceState::ON){
+			cout << "ON" << endl;
+		}else if(d.state == DeviceState::OFF){
+			cout << "OFF" << endl;
+		}else if(d.state == DeviceState::UNREACHABLE){
+			cout << "UNREACHABLE" << endl;
+		}
+	}
 
 	mosquitto_loop_stop(mosq, true);
 	mosquitto_disconnect(mosq);

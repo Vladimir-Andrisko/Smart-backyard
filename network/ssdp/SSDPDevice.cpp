@@ -97,6 +97,8 @@ void SSDPDevice::sendNotifyAlive(){
     for(int i = 0; i < QoS; i++){
         if(sendto(socket_fd_, (const char*)alive_msg.c_str(), alive_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
             safeCout("[WARN] Failed to send alive msg!\n");
+        }else{
+            safeCout("[INFO] Sent alive msg!\n");
         }
     }
 }
@@ -105,14 +107,18 @@ void SSDPDevice::sendNotifyByebye(){
     for(int i = 0; i < QoS; i++){
         if(sendto(socket_fd_, (const char*)byebye_msg.c_str(), byebye_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
             safeCout("[WARN] Failed to send byebye msg!\n");
+        }else{
+            safeCout("[INFO] Sent byebye msg!\n");
         }
     }   
 }
 
 void SSDPDevice::respondToSearch(const sockaddr_in& sender){
     for(int i = 0; i < QoS; i++){
-        if(sendto(socket_fd_, (const char*)response_msg.c_str(), response_msg.size(), 0, (const sockaddr *)&sender, sizeof(sender)) < 0){
+        if(sendto(socket_fd_, (const char*)response_msg.c_str(), response_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
             safeCout("[WARN] Failed to send response msg!\n");
+        }else{
+            safeCout("[INFO] Sent respondToSearch msg!\n");
         }
     }
 }
@@ -124,7 +130,6 @@ void SSDPDevice::aliveLoop(){
         if(sleepCv.wait_for(mx, std::chrono::seconds(NOTIFY_TIMEOUT), [this]{return !running;})){
             break;
         }
-
         sendNotifyAlive();
     }
 }
@@ -142,9 +147,8 @@ void SSDPDevice::listenLoop() {
         buffer[n] = '\0';
         std::string msg(buffer);
 
-        if (msg.find("ssdp:discover") != std::string::npos){
+        if (msg.find("ssdp:all") != std::string::npos){
             respondToSearch(sender);
-            safeCout("Responding to controller M-SEARCH");
         }
     }
 }
