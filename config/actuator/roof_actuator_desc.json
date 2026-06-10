@@ -1,7 +1,8 @@
 {
     "uuid": "1::roof_actuator",
     "group": "global",
-    "topic": "garden/global/actuator/roof_actuator",
+    "sub_topic": "garden/global/actuator/roof_actuator/subscriber",
+    "pub_topic": "garden/global/actuator/roof_actuator/publisher",
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",

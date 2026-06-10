@@ -1,10 +1,9 @@
 {
-    "uuid": "1::roof_actuator",
-    "group": "global",
-    "topic": "garden/global/actuator/roof_actuator",
-
-    "Service":  {
-        "State": "ON",
-        "Position": "OPEN"
-    }
+	"uuid": "1::roof_actuator",
+	"group": "global",
+	"topic": "garden/global/actuator/roof_actuator",
+	"Service": {
+		"State": "OFF",
+		"Position": "OPEN"
+	}
 }

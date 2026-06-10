@@ -11,6 +11,8 @@
         "uuid:4::row_sensor",
         "uuid:5::row_sensor",
 
+        "uuid:1::roof_actuator",
+
         "uuid:1::row_actuator",
         "uuid:2::row_actuator",
         "uuid:3::row_actuator",

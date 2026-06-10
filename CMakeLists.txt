@@ -53,7 +53,7 @@ target_link_libraries(ssdp PUBLIC
 # ========================
 # CONTROLLER
 # ========================
-add_executable(controller backend/controler.cpp)
+add_executable(controller backend/controller.cpp)
 
 target_include_directories(controller PRIVATE
     ${MOSQUITTO_INCLUDE_DIRS}

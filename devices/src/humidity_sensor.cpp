@@ -1,13 +1,3 @@
-#include "network/ssdp/SSDPDevice.hpp"
-#include "mosquitto.h"
-#include "csignal"
-#include <random>
-#include <chrono>
-#include <atomic>
-#include <thread>
-#include <mutex>
-#include "json.hpp"
-
 #include "humidity_sensor.hpp"
 
 using namespace std;
@@ -19,6 +9,7 @@ static condition_variable sleepCv;
 void handleSignal(int){
     if(ssdp != nullptr){
         delete ssdp;
+        ssdp = nullptr;
     }
     exit(0);
 }
@@ -32,11 +23,8 @@ int main(int argc, char* argv[]){
     string topic;
 
     try{
-        if (argc >= 2)
-            ssdp = new SSDPDevice(argv[1], 5);
-        else
-            ssdp = new SSDPDevice("1", "humidity_sensor", "config/sensor/humidity_sensor_desc.json", 5);
-
+        if (argc >= 2) ssdp = new SSDPDevice(argv[1], 5);
+        else ssdp = new SSDPDevice("1", "humidity_sensor", "config/sensor/humidity_sensor_desc.json", 5);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
@@ -53,7 +41,7 @@ int main(int argc, char* argv[]){
 	mosquitto_lib_init();
 	mosq = mosquitto_new("humidity_sensor", true, NULL);
 
-	rc = mosquitto_connect(mosq, "0.0.0.0", 1883, keepAlive);
+	rc = mosquitto_connect(mosq, "localhost", 1883, keepAlive);
 	if(rc != 0){
 		printf("Client could not connect to broker! Error Code: %d\n", rc);
 		mosquitto_destroy(mosq);

@@ -1,53 +1,41 @@
-#include "network/ssdp/SSDPController.hpp"
-#include <iostream>
-#include <csignal>
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <algorithm>
-#include <mutex>
-#include "mosquitto.h"
-#include "json.hpp"
-#include "httpserver.hpp"
+#include "controller.hpp"
 
 using namespace std;
 SSDPController *ssdp = nullptr;
 unordered_map<string, string> device_descriptions;
 mutex mx;
 
-void handleSignal(int)
-{
-    std::cout << "Zaustavlja se SSDP\n";
-    if (ssdp)
-    {
-        delete ssdp;
+void handleSignal(int){
+    if (ssdp != nullptr){
+		delete ssdp;
         ssdp = nullptr;
     }
-    std::exit(0);
+    exit(0);
 }
 
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg) {
 	string topic(msg->topic);
 	std::string payload(static_cast<const char*>(msg->payload),msg->payloadlen);
 	string uuid;
-
+	
 	try {
         json::jobject Obj = json::jobject::parse(payload);
 		uuid = string(Obj["uuid"].as_string());
 		json::jobject ServiceObj = Obj["Service"].as_object();
 
-		if(topic == "garden/global/sensor/temperature_sensor"){
+		if(topic == TEMPERATURE_SENSOR_TOPIC){
 			string value = ServiceObj["Temperature"];
 			string location = device_descriptions[uuid];
 			HTTPServer::writeDeviceServiceVariable(location, "Temperature", value);
-
-		}else if(topic == "garden/global/sensor/humidity_sensor"){
+		}else if(topic == HUMIDITY_SENSOR_TOPIC){
 			string value = ServiceObj["Humidity"];
 			string location = device_descriptions[uuid];
 			HTTPServer::writeDeviceServiceVariable(location, "Humidity", value);
+		}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
+			printf("Od roof dobijam %s: %s\n", msg->topic, (char *) msg->payload);
 		}
     } catch (const std::exception &e) {
-        std::cout << "JSON parse error: " << e.what() << std::endl;
+        std::cout << "JSON error: " << e.what() << std::endl;
     }
 	
 }
@@ -59,6 +47,7 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 		exit(-1);
 	}
 	mosquitto_subscribe(mosq, NULL, "garden/global/sensor/#", 0);
+	mosquitto_subscribe(mosq, NULL, "test/t1", 0);
 	mosquitto_message_callback_set(mosq, on_message);
 }
 
@@ -106,7 +95,7 @@ int main(){
 	mosq = mosquitto_new("smart_garden_controller", true, &id);
 	mosquitto_connect_callback_set(mosq, on_connect);
 
-	rc = mosquitto_connect(mosq, "0.0.0.0", 1883, 10);
+	rc = mosquitto_connect(mosq, "localhost", 1883, 10);
 	if(rc) {
 		printf("Could not connect to Broker with return code %d\n", rc);
 		exit(0);
@@ -119,7 +108,11 @@ int main(){
 	printf("Press Enter to quit...\n");
 	getchar();
 
+	cout << "Sending message to roof\n\n";
+	int ret = mosquitto_publish(mosq, NULL, "garden/global/actuator/roof_actuator", 17, "Hello controller", 0, false);
+	printf("Publish ret = %d\n", ret);
 
+	getchar();
 	ssdp->getAvailableDevices();
 
 
