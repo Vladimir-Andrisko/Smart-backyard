@@ -3,6 +3,7 @@
     "group": "global",
     "sub_topic": "garden/global/actuator/roof_actuator/subscriber",
     "pub_topic": "garden/global/actuator/roof_actuator/publisher",
+    "max_age": 60,
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",

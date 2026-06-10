@@ -8,25 +8,25 @@
 #include <arpa/inet.h>
 #include <string>
 #include <unistd.h>
-#include <stdio.h>
 #include <atomic>
 #include <unordered_map>
 #include <mutex>
 #include <condition_variable>
 #include <iostream>
 #include <fstream>
-#include <sstream>
 
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 
 static constexpr int NOTIFY_TIMEOUT = 30;
 static constexpr int SOCKET_TIMEOUT = 1;
 static constexpr int BUFFER_SIZE = 1024;
 
+using json = nlohmann::json;
+
 class SSDPDevice
 {
 private:
-    void init(const std::string& uuid, const std::string& deviceType, const std::string& location);
+    void init(const std::string& uuid, const std::string& deviceType, const std::string& location, const int &max_age);
     void setupSocket();
 
     void listenLoop();
@@ -59,7 +59,7 @@ private:
     int QoS;
     
 public:
-    SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, int qos);
+    SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, const int& max_age, int qos);
     SSDPDevice(const std::string& location, int qos);
     ~SSDPDevice();
 

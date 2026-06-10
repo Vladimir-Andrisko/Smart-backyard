@@ -1,15 +1,4 @@
-#include "network/ssdp/SSDPDevice.hpp"
-#include "mosquitto.h"
-#include "csignal"
-#include <random>
-#include <chrono>
-#include <atomic>
-#include <thread>
-#include <mutex>
-#include "json.hpp"
-
 #include "temperature_sensor.hpp"
-
 
 using namespace std;
 static SSDPDevice *ssdp = nullptr;
@@ -36,7 +25,7 @@ int main(int argc, char* argv[]){
         if (argc >= 2)
             ssdp = new SSDPDevice(argv[1], 5);
         else
-            ssdp = new SSDPDevice("1", "temperature_sensor", "config/sensor/temperature_sensor_desc.json", 5);
+            ssdp = new SSDPDevice("1", "temperature_sensor", "config/sensor/temperature_sensor_desc.json", 10, 5);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
@@ -131,10 +120,7 @@ std::string loadTopicFromJson(const std::string& path){
 
     if(!file.is_open())
         throw std::runtime_error("Failed to open json file");
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    
-    json::jobject obj = json::jobject::parse(buffer.str().c_str());
 
-    return obj["topic"].as_string();
+    json obj = json::parse(file);
+    return obj["topic"].get<string>();
 }

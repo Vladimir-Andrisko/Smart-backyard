@@ -2,14 +2,14 @@
 
 
 
-void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, const std::string& location)
+void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, const std::string& location, const int &max_age)
 {
     this->uuid = uuid;
     this->deviceType = deviceType;
     this->location = location;
-    alive_msg = SSDP::buildNotifyAlive(uuid, location, deviceType);
+    alive_msg = SSDP::buildNotifyAlive(uuid, location, deviceType, max_age);
     byebye_msg = SSDP::buildNotifyByebye(uuid, deviceType);
-    response_msg = SSDP::buildResponse(uuid, location, deviceType);
+    response_msg = SSDP::buildResponse(uuid, location, deviceType, max_age);
 
     std::cout << "Alive msg: \n" << alive_msg << std::endl << std::endl;
     std::cout << "Bye msg: \n" << byebye_msg << std::endl << std::endl;
@@ -18,26 +18,31 @@ void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, co
     setupSocket();
 }
 
-SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, int qos)
+SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, const int& max_age, int qos)
 {
     this->QoS = qos;
-    init(uuid, deviceType, location);
+    init(uuid, deviceType, location, max_age);
 }
 
 SSDPDevice::SSDPDevice(const std::string& location, int qos)
 {
     try{
         this->QoS = qos;
-        std::ifstream file(location);
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        std::string content = buffer.str();
-        json::jobject obj = json::jobject::parse(content.c_str());
 
-        init(obj["uuid"], obj["group"], location);
+        std::ifstream file(location);
+        if(!file.is_open()){
+            throw std::runtime_error("Cannot open file");
+        }
+
+        json data = json::parse(file);
+        std::string uuid = data["uuid"];
+        std::string deviceType = data["group"];
+        int age = data["max_age"];
+
+        init(uuid, deviceType, location, age);
 
     }catch(const std::exception &e){
-        throw std::runtime_error("Can't initialize device. Unable to parse json file!");
+        throw std::runtime_error(std::string("Can't initialize device: ") + e.what());
     }
 }
 
@@ -137,9 +142,9 @@ void SSDPDevice::listenLoop() {
         buffer[n] = '\0';
         std::string msg(buffer);
 
-        if (msg.find("M-SEARCH") != std::string::npos && msg.find("ssdp:discover") != std::string::npos)
-        {
+        if (msg.find("ssdp:discover") != std::string::npos){
             respondToSearch(sender);
+            safeCout("Responding to controller M-SEARCH");
         }
     }
 }
@@ -175,6 +180,5 @@ void SSDPDevice::stop() {
 
 void SSDPDevice::safeCout(const std::string msg){
     std::unique_lock<std::mutex> mx(cout_mx);
-
     std::cout << msg;
 }

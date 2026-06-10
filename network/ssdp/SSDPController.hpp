@@ -16,18 +16,20 @@
 #include <chrono>
 #include <vector>
 #include <fstream>
-#include <sstream>
 
-#include "json.hpp"
-#include "httpserver.hpp"
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
+
+enum class DeviceState{ON, OFF, UNREACHABLE};
 
 struct Device{
     std::string uuid;
     std::string location;
     std::string st;
-    bool alive;
 
     std::chrono::steady_clock::time_point lastSeen;
+    DeviceState state;
     int maxAge;
 };
 
@@ -50,7 +52,6 @@ private:
     void loadWhitelist(const std::string& path);
 
     std::map<std::string, Device> device_dict;
-    std::map<std::string, std::chrono::steady_clock::time_point> device_reconnect_cooldowns;
     std::unordered_set<std::string> whitelist;
 
     int socket_fd_;
@@ -79,7 +80,7 @@ public:
     void updateDevice(Device &dev);
     void removeDevice(const std::string &uuid);
 
-    void getAvailableDevices();
+    std::vector<Device> getAllDevices();
 
     void start();
     void stop();

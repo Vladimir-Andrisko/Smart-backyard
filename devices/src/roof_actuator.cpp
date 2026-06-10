@@ -20,7 +20,7 @@ int main(int argc, char* argv[]){
 
     try{
         if (argc >= 2) ssdp = new SSDPDevice(argv[1], 5);
-        else ssdp = new SSDPDevice("1", "roof_actuator", "config/actuator/roof_actuator_desc.json", 5);
+        else ssdp = new SSDPDevice("1", "roof_actuator", "config/actuator/roof_actuator_desc.json", 10, 5);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]){
 	mosq = mosquitto_new("roof_actuator", true, NULL);
     mosquitto_connect_callback_set(mosq, on_connect);
 
-	rc = mosquitto_connect(mosq, "0.0.0.0", 1883, keepAlive);
+	rc = mosquitto_connect(mosq, "localhost", 1883, keepAlive);
 	if(rc != 0){
 		printf("Client could not connect to broker! Error Code: %d\n", rc);
 		mosquitto_destroy(mosq);
@@ -61,17 +61,14 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-string loadTopicFromJson(const std::string& path){
+std::string loadTopicFromJson(const std::string& path){
     std::ifstream file(path);
 
     if(!file.is_open())
         throw std::runtime_error("Failed to open json file");
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    json::jobject obj = json::jobject::parse(buffer.str().c_str());
-
-    return obj["topic"].as_string();
+    json obj = json::parse(file);
+    return obj["topic"].get<string>();
 }
 
 

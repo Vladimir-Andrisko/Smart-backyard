@@ -4,7 +4,7 @@
 SSDPController::SSDPController(bool debug){
     debug_ = debug;
     m_searchMsg = SSDP::buildMSearch();
-    loadWhitelist("network/whitelist.json");
+    loadWhitelist("config/whitelist.json");
     setupSocket();
 }
 
@@ -20,55 +20,40 @@ void SSDPController::safeCout(const std::string &msg){
 }
 
 void SSDPController::updateDevice(Device &dev){
-    std::unique_lock<std::mutex> ul(mx);
-    dev.alive = true;
-    device_dict[dev.uuid] = dev;
+    std::lock_guard<std::mutex> lock(mx);
 
-    HTTPServer::writeDeviceServiceVariable(dev.location, "State", "ON");
+    auto it = device_dict.find(dev.uuid);
+
+    if(it != device_dict.end()){
+        if(it->second.state != DeviceState::ON) it->second.state = DeviceState::ON;
+        it->second.lastSeen = std::chrono::steady_clock::now();
+    }else{
+        dev.lastSeen = std::chrono::steady_clock::now();
+        dev.state = DeviceState::ON;
+        device_dict[dev.uuid] = dev;
+    }
 }
 
 void SSDPController::removeDevice(const std::string &uuid){
-    std::unique_lock<std::mutex> ul(mx);
-    std::string location = device_dict[uuid].location;
+    std::lock_guard<std::mutex> lock(mx);
 
-    HTTPServer::writeDeviceServiceVariable(location, "State", "OFF");
-
-    device_reconnect_cooldowns[uuid] = std::chrono::steady_clock::now() + std::chrono::seconds(RECONNECT_COOLDOWN);
-    device_dict.erase(uuid);
+    auto it = device_dict.find(uuid);
+    if (it != device_dict.end()) it->second.state = DeviceState::OFF;
 }
 
 void SSDPController::livenessCheckLoop()
 {
-    while(running)
-    {
-        std::vector<Device> dead_devices;
+    while(running){
         auto now = std::chrono::steady_clock::now();
 
+        std::lock_guard<std::mutex> lock(mx);
         {
-            std::lock_guard<std::mutex> lock(mx);
-
-            for (auto it = device_dict.begin(); it != device_dict.end(); ++it)
-            {
-                Device &dev = it->second;
-                if (!dev.alive)
-                    continue;
-
+            for (auto & [uuid, dev] : device_dict){
                 auto age = std::chrono::duration_cast<std::chrono::seconds>(now - dev.lastSeen).count();
 
-                if (age > dev.maxAge + 2)
-                {
-                    dev.alive = false;
-                    dead_devices.push_back(dev);
-                }
+                if (dev.state == DeviceState::ON && age > dev.maxAge + 2) dev.state = DeviceState::UNREACHABLE;
             }
         }
-
-        for (const auto &dev : dead_devices)
-        {
-            HTTPServer::writeDeviceServiceVariable(dev.location, "State", "UNREACHABLE");
-            safeCout("[WARN] Device expired: " + dev.uuid + "\n");
-        }
-
         std::this_thread::sleep_for(std::chrono::seconds(EXPIRE_TIMEOUT));
     }
 }
@@ -150,19 +135,6 @@ void SSDPController::stop(){
     if (listenerThread.joinable()) listenerThread.join();
     if (livenessCheckThread.joinable()) livenessCheckThread.join();
     if (searchThread.joinable()) searchThread.join();
-
-    std::vector<std::string> uuids;
-    {
-        std::lock_guard<std::mutex> lock(mx);
-        
-        uuids.reserve(device_dict.size());
-
-        for (auto& [uuid, dev] : device_dict)
-            uuids.push_back(uuid);
-    }
-
-    for (auto& uuid : uuids)
-        removeDevice(uuid);
 }
 
 void SSDPController::listenLoop(){
@@ -179,26 +151,14 @@ void SSDPController::listenLoop(){
         std::string msg(buffer);
         
         Device dev = parseMessage(msg);
-
         if (dev.uuid.empty()) continue;
 
         if (msg.find("ssdp:byebye") != std::string::npos) {
             removeDevice(dev.uuid);
             safeCout("[INFO] Device BYEBYE: " + dev.uuid + "\n");
-        }else{
-            auto it = device_reconnect_cooldowns.find(dev.uuid);
-            bool cooldown = (it != device_reconnect_cooldowns.end()) &&
-                            (it->second >= std::chrono::steady_clock::now());
-
-
-            dev.lastSeen = std::chrono::steady_clock::now();
-            if (!cooldown)
-            {
-                updateDevice(dev);
-                safeCout("[INFO] Device updated: " + dev.uuid + "\n");
-            }
-            else
-                safeCout("[INFO] Message from " + dev.uuid + " rejected due to cooldown.\n");
+        }else if(msg.find("ssdp:alive") != std::string::npos){
+            updateDevice(dev);
+            safeCout("[INFO] Device ALIVE: " + dev.uuid + "\n");
         }
     }
 
@@ -246,10 +206,10 @@ Device SSDPController::parseMessage(const std::string &msg){
     dev.location = find("LOCATION: ");
     dev.st = find("ST: ");
 
-    std::string temp = find("CACHE-CONTROL: max-age=");
+    std::string age = find("CACHE-CONTROL: max-age=");
 
     try {
-        dev.maxAge = std::stoi(temp);
+        dev.maxAge = std::stoi(age);
     } catch (...) {
         dev.maxAge = 10;
     }
@@ -262,21 +222,25 @@ void SSDPController::loadWhitelist(const std::string& path)
 {
     std::ifstream file(path);
     if (!file.is_open())
-        throw std::runtime_error("Can't open whitelist file");
+        throw std::runtime_error("Can't open whitelist file\n\n");
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
+    json data = json::parse(file);
 
-    json::jobject obj = json::jobject::parse(buffer.str().c_str());
-    json::jobject list = obj["whitelist"];
+    for(const auto &item : data["whitelist"])
+        whitelist.insert(item.get<std::string>());
 
-    for(int i = 0; i < list.size(); i++){
-        whitelist.insert(list.array(i).as_string());
-    }
+    for(auto &w : whitelist)
+        safeCout(w + "\n\n");
 }
 
-void SSDPController::getAvailableDevices(){
-    for(auto &pair : device_dict){
-        safeCout(pair.first + "\n\n");
+
+std::vector<Device> SSDPController::getAllDevices(){
+    std::lock_guard<std::mutex> lock(mx);
+
+    std::vector<Device> out;
+    for (auto & [uuid, dev] : device_dict){
+        out.push_back(dev);
     }
+
+    return out;
 }

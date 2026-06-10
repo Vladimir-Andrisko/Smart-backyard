@@ -11,8 +11,8 @@
 #include <mutex>
 #include "mosquitto.h"
 
-#include "json.hpp"
-#include "httpserver.hpp"
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
 
 static constexpr const char* HUMIDITY_SENSOR_TOPIC = "garden/global/sensor/humidity_sensor";
 static constexpr const char* TEMPERATURE_SENSOR_TOPIC = "garden/global/sensor/temperature_sensor";

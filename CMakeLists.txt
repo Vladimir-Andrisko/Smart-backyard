@@ -13,25 +13,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
 
-# ========================
-# JSON LIBRARY
-# ========================
-add_library(json json/json.cpp)
-
-target_include_directories(json PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/json
-)
-
-# ========================
-# HTTP SERVER
-# ========================
-add_library(http network/httpserver/httpserver.cpp)
-
-target_include_directories(http PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/httpserver
-)
-
-target_link_libraries(http PUBLIC json)
 
 # ========================
 # SSDP
@@ -43,11 +24,6 @@ add_library(ssdp
 
 target_include_directories(ssdp PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-target_link_libraries(ssdp PUBLIC
-    json
-    http
 )
 
 # ========================
@@ -82,7 +58,6 @@ target_link_libraries(sensor
 add_executable(humidity_sensor devices/src/humidity_sensor.cpp)
 
 target_include_directories(humidity_sensor PRIVATE
-    json
     ${CMAKE_CURRENT_SOURCE_DIR}/devices/include
     ${MOSQUITTO_INCLUDE_DIRS}
 )
@@ -95,7 +70,6 @@ target_link_libraries(humidity_sensor
 add_executable(temperature_sensor devices/src/temperature_sensor.cpp)
 
 target_include_directories(temperature_sensor PRIVATE
-    json
     ${CMAKE_CURRENT_SOURCE_DIR}/devices/include
     ${MOSQUITTO_INCLUDE_DIRS}
 )
@@ -112,7 +86,6 @@ target_link_libraries(temperature_sensor
 add_executable(roof_actuator devices/src/roof_actuator.cpp)
 
 target_include_directories(roof_actuator PRIVATE
-    json
     ${CMAKE_CURRENT_SOURCE_DIR}/devices/include
     ${MOSQUITTO_INCLUDE_DIRS}
 )

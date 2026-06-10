@@ -18,25 +18,6 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	std::string payload(static_cast<const char*>(msg->payload),msg->payloadlen);
 	string uuid;
 	
-	try {
-        json::jobject Obj = json::jobject::parse(payload);
-		uuid = string(Obj["uuid"].as_string());
-		json::jobject ServiceObj = Obj["Service"].as_object();
-
-		if(topic == TEMPERATURE_SENSOR_TOPIC){
-			string value = ServiceObj["Temperature"];
-			string location = device_descriptions[uuid];
-			HTTPServer::writeDeviceServiceVariable(location, "Temperature", value);
-		}else if(topic == HUMIDITY_SENSOR_TOPIC){
-			string value = ServiceObj["Humidity"];
-			string location = device_descriptions[uuid];
-			HTTPServer::writeDeviceServiceVariable(location, "Humidity", value);
-		}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
-			printf("Od roof dobijam %s: %s\n", msg->topic, (char *) msg->payload);
-		}
-    } catch (const std::exception &e) {
-        std::cout << "JSON error: " << e.what() << std::endl;
-    }
 	
 }
 
@@ -54,25 +35,15 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 void loadDevices(){
 	string path = "backend/device_config.json";
 	ifstream file(path);
-	json::jobject data;
+	json data;
 
 	if(!file.is_open()){
 		cout << "Failed to open: " << path << endl;
 		exit(0);
 	}
 
-	stringstream buffer;
-	buffer << file.rdbuf();
+	data = json::parse(file);
 	file.close();
-
-	json::jobject obj = json::jobject::parse(buffer.str().c_str());
-	json::key_list_t keys = obj.list_keys();
-
-	for (size_t i = 0; i < keys.size(); i++) {
-		std::string key = keys[i];
-		std::string value = obj[key].as_string();
-		device_descriptions[key] = value;
-	}
 }
 
 int main(){
@@ -113,8 +84,6 @@ int main(){
 	printf("Publish ret = %d\n", ret);
 
 	getchar();
-	ssdp->getAvailableDevices();
-
 
 	mosquitto_loop_stop(mosq, true);
 	mosquitto_disconnect(mosq);

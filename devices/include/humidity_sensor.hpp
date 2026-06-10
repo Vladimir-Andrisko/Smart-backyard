@@ -9,11 +9,13 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
-#include "json.hpp"
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
 
 static constexpr int SLEEP_TIME = 10;
 static constexpr int QoS = 0;
 static constexpr int keepAlive = 60;
+static constexpr int SSDP_QoS = 2;
 
 void handleSignal(int);
 int generateHumidity();

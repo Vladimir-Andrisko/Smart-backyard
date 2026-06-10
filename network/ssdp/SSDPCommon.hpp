@@ -8,12 +8,12 @@ namespace SSDP{
     constexpr const char* MULTICAST_ADDRESS = "239.255.255.250";
     constexpr const int PORT = 1900;
 
-    inline std::string buildNotifyAlive(const std::string& uuid, const std::string& location, const std::string& deviceType)
+    inline std::string buildNotifyAlive(const std::string& uuid, const std::string& location, const std::string& deviceType, const int& max_age)
     {
         return
             "NOTIFY * HTTP/1.1\r\n"
             "HOST: 239.255.255.250:1900\r\n"
-            "CACHE-CONTROL: max-age=60\r\n"
+            "CACHE-CONTROL: max-age=" + std::to_string(max_age) + "\r\n"
             "NT: " + deviceType + "\r\n"
             "NTS: ssdp:alive\r\n"
             "USN: uuid:" + uuid + "\r\n"
@@ -43,11 +43,11 @@ namespace SSDP{
             "\r\n";
     }
 
-    inline std::string buildResponse(const std::string& uuid, const std::string& location, const std::string& deviceType)
+    inline std::string buildResponse(const std::string& uuid, const std::string& location, const std::string& deviceType, const int& max_age)
     {
         return
             "HTTP/1.1 200 OK\r\n"
-            "CACHE-CONTROL: max-age=10\r\n"
+            "CACHE-CONTROL: max-age=" + std::to_string(max_age) + "\r\n"
             "EXT:\r\n"
             "LOCATION: " + location + "\r\n"
             "ST: " + deviceType + "\r\n"

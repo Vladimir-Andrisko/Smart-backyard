@@ -2,6 +2,7 @@
     "uuid": "1::temperature_sensor",
     "group": "global",
     "topic": "garden/global/sensor/temperature_sensor",
+    "max_age": 60,
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",

@@ -24,7 +24,7 @@ int main(int argc, char* argv[]){
 
     try{
         if (argc >= 2) ssdp = new SSDPDevice(argv[1], 5);
-        else ssdp = new SSDPDevice("1", "humidity_sensor", "config/sensor/humidity_sensor_desc.json", 5);
+        else ssdp = new SSDPDevice("1", "humidity_sensor", "config/sensor/humidity_sensor_desc.json", 10, SSDP_QoS);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
@@ -62,10 +62,10 @@ int main(int argc, char* argv[]){
         {
             int humidity = generateHumidity();
             string msg = construct_msg(humidity);
-            cout << "Humiditi sensor: \n" << msg << endl;
+            cout << "Humidity sensor: \n" << msg << endl;
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
-
-            sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME), [&]{return !running.load();});
+            
+            sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME));
         }
     }
 
@@ -98,7 +98,6 @@ int generateHumidity()
 
 
 std::string construct_msg(int humidity){
-
     return std::string(R"json(
 {
     "uuid": "uuid:1::humidity_sensor",
@@ -119,10 +118,6 @@ std::string loadTopicFromJson(const std::string& path){
     if(!file.is_open())
         throw std::runtime_error("Failed to open json file");
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-
-    json::jobject obj = json::jobject::parse(buffer.str().c_str());
-
-    return obj["topic"].as_string();
+    json obj = json::parse(file);
+    return obj["topic"].get<string>();
 }

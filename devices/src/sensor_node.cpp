@@ -28,7 +28,7 @@ int main(int argc, char* argv[]){
         if (argc >= 2)
             ssdp = new SSDPDevice(argv[1], 5);
         else
-            ssdp = new SSDPDevice("1", "row_sensor", "config/sensor/sensor_test.json", 5);
+            ssdp = new SSDPDevice("1", "row_sensor", "config/sensor/sensor_test.json", 10, 5);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
