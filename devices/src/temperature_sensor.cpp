@@ -116,7 +116,7 @@ std::string construct_msg(int temperature){
 {
     "uuid": "uuid:1::temperature_sensor",
     "group": "global",
-    "TemperatureService": {
+    "Service": {
         "State": "ON",
         "Temperature": )json")
     + std::to_string(temperature) +

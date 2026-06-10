@@ -25,8 +25,8 @@ void handleSignal(int){
 
 
 int main(int argc, char* argv[]){
-    std::signal(SIGINT, handleSignal);
-    std::atomic<bool> running(true);
+    signal(SIGINT, handleSignal);
+    atomic<bool> running(true);
     int rc;
 	struct mosquitto *mosq;
     string topic;
@@ -113,9 +113,9 @@ std::string construct_msg(int humidity){
 
     return std::string(R"json(
 {
-    "uuid": "uuid:1:humidity_sensor",
+    "uuid": "uuid:1::humidity_sensor",
     "group": "global",
-    "humidityService": {
+    "Service": {
         "State": "ON",
         "Humidity": )json")
     + std::to_string(humidity) +

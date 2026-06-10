@@ -1,0 +1,5 @@
+{
+    "uuid:1::humidity_sensor": "config/sensor/humidity_sensor_desc.json",
+    "uuid:1::temperature_sensor": "config/sensor/temperature_sensor_desc.json",
+    "uuid:1::roof_actuator": "config/actuator/roof_actuator_desc.json"
+}

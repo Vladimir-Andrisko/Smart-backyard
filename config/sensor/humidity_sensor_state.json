@@ -3,6 +3,6 @@
 	"group": "global",
 	"Service": {
 		"State": "OFF",
-		"Humidity": 50
+		"Humidity": "21"
 	}
 }

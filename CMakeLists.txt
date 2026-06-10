@@ -104,3 +104,20 @@ target_link_libraries(temperature_sensor
     ssdp
     ${MOSQUITTO_LIBRARIES}
 )
+
+# ==========================
+#       ACTUATOR
+# ==========================
+
+add_executable(roof_actuator devices/src/roof_actuator.cpp)
+
+target_include_directories(roof_actuator PRIVATE
+    json
+    ${CMAKE_CURRENT_SOURCE_DIR}/devices/include
+    ${MOSQUITTO_INCLUDE_DIRS}
+)
+
+target_link_libraries(roof_actuator
+    ssdp
+    ${MOSQUITTO_LIBRARIES}
+)
