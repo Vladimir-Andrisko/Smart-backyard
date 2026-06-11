@@ -3,11 +3,12 @@ Projektni zadatak iz predmeta Bežične mreže - Internet of things
 
 ---
 
-## 1. Install Mosquitto library and broker
+## 1. Install Mosquitto library, broker and json library
 
 ```
 sudo apt update
 sudo apt install libmosquitto-dev mosquitto
+sudo apt install nlohmann-json3-dev
 ```
 
 ---
@@ -29,6 +30,5 @@ NOTE: This is a test compile, there is no need to run mqtt broker mosquitto.
 mkdir build && cd build
 cmake ..
 make
----
-
+```
 all executables will be in Smart-backyard/bin/

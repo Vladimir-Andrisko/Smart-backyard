@@ -4,6 +4,7 @@ using namespace std;
 static SSDPDevice *ssdp = nullptr;
 static mutex sleepMx;
 static condition_variable sleepCv;
+atomic<bool> running(true);
 
 
 void handleSignal(int){
@@ -14,10 +15,9 @@ void handleSignal(int){
     exit(0);
 }
 
-
 int main(int argc, char* argv[]){
     signal(SIGINT, handleSignal);
-    atomic<bool> running(true);
+    
     int rc;
 	struct mosquitto *mosq;
     string topic;
@@ -31,6 +31,7 @@ int main(int argc, char* argv[]){
     }
 
     try{
+        cout << "Config file path: " << argv[1] << endl;
         topic = loadTopicFromJson(argv[1]);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
@@ -61,8 +62,8 @@ int main(int argc, char* argv[]){
         while (running)
         {
             int humidity = generateHumidity();
+            cout << "Humidity sensor reading: " << humidity << endl;
             string msg = construct_msg(humidity);
-            cout << "Humidity sensor: \n" << msg << endl;
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
             
             sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME));
@@ -74,7 +75,6 @@ int main(int argc, char* argv[]){
 	mosquitto_disconnect(mosq);
 	mosquitto_destroy(mosq);
 	mosquitto_lib_cleanup();
-    mosquitto_loop_stop(mosq, true);
 
     ssdp->stop();
     delete ssdp;

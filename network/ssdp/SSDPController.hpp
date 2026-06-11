@@ -11,6 +11,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <condition_variable>
+#include <functional>
 
 #include <iostream>
 #include <chrono>
@@ -50,6 +51,8 @@ private:
     void safeCout(const std::string &msg);
     void loadWhitelist(const std::string& path);
 
+    std::function<void(const Device&)> onDeviceAdded;
+
     std::map<std::string, Device> device_dict;
     std::unordered_set<std::string> whitelist;
 
@@ -78,6 +81,7 @@ public:
 
     void updateDevice(Device &dev);
     void removeDevice(const std::string &uuid);
+    void setOnDeviceAdded(std::function<void(const Device&)> callback);
 
     std::vector<Device> getAllDevices();
 

@@ -20,17 +20,24 @@ void SSDPController::safeCout(const std::string &msg){
 }
 
 void SSDPController::updateDevice(Device &dev){
-    std::lock_guard<std::mutex> lock(mx);
+    bool isNew = false;
+    {
+        std::lock_guard<std::mutex> lock(mx);
 
-    auto it = device_dict.find(dev.uuid);
+        auto it = device_dict.find(dev.uuid);
 
-    if(it != device_dict.end()){
-        if(it->second.state != DeviceState::ON) it->second.state = DeviceState::ON;
-        it->second.lastSeen = std::chrono::steady_clock::now();
-    }else{
-        dev.lastSeen = std::chrono::steady_clock::now();
-        dev.state = DeviceState::ON;
-        device_dict[dev.uuid] = dev;
+        if(it != device_dict.end()){
+            if(it->second.state != DeviceState::ON) it->second.state = DeviceState::ON;
+            it->second.lastSeen = std::chrono::steady_clock::now();
+        }else{
+            dev.lastSeen = std::chrono::steady_clock::now();
+            dev.state = DeviceState::ON;
+            device_dict[dev.uuid] = dev;
+            isNew = true;
+        }
+    }
+    if(onDeviceAdded && isNew){
+        onDeviceAdded(dev);
     }
 }
 
@@ -241,4 +248,8 @@ std::vector<Device> SSDPController::getAllDevices(){
     }
 
     return out;
+}
+
+void SSDPController::setOnDeviceAdded(std::function<void(const Device&)> callback){
+    onDeviceAdded = callback;
 }

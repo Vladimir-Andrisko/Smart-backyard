@@ -2,8 +2,6 @@
 
 using namespace std;
 SSDPController *ssdp = nullptr;
-unordered_map<string, string> device_descriptions;
-mutex mx;
 
 void handleSignal(int){
     if (ssdp != nullptr){
@@ -16,7 +14,7 @@ void handleSignal(int){
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg) {
 	string topic(msg->topic);
 	std::string payload(static_cast<const char*>(msg->payload),msg->payloadlen);
-	string uuid;
+	
 	
 	
 }
@@ -32,19 +30,6 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 	mosquitto_message_callback_set(mosq, on_message);
 }
 
-void loadDevices(){
-	string path = "backend/device_config.json";
-	ifstream file(path);
-	json data;
-
-	if(!file.is_open()){
-		cout << "Failed to open: " << path << endl;
-		exit(0);
-	}
-
-	data = json::parse(file);
-	file.close();
-}
 
 int main(){
 	signal(SIGINT, handleSignal);
@@ -58,7 +43,19 @@ int main(){
         return 1;
     }
 
-	loadDevices();
+	ssdp->setOnDeviceAdded([&](const Device& dev){
+		try{
+			ifstream file(dev.location);
+			if(!file.is_open()){
+				cout << "Failed to open device description file: " << dev.location << endl;
+				return;
+			}
+			json desc = json::parse(file);
+			cout << desc << endl;
+		}catch(exception e){
+			cout << "[JSON] " << e.what() << endl;
+		}
+	});
     ssdp->start();
 
     
@@ -76,31 +73,17 @@ int main(){
 
 	mosquitto_loop_start(mosq);
 
-	printf("Press Enter to quit...\n");
-	// getchar();
-
 	// cout << "Sending message to roof\n\n";
 	// int ret = mosquitto_publish(mosq, NULL, "garden/global/actuator/roof_actuator", 17, "Hello controller", 0, false);
 	// printf("Publish ret = %d\n", ret);
 
 	getchar();
-	vector<Device> devices = ssdp->getAllDevices();
-
-	for(auto &d : devices){
-		cout << d.uuid << "  " << d.maxAge << "  ";
-		if(d.state == DeviceState::ON){
-			cout << "ON" << endl;
-		}else if(d.state == DeviceState::OFF){
-			cout << "OFF" << endl;
-		}else if(d.state == DeviceState::UNREACHABLE){
-			cout << "UNREACHABLE" << endl;
-		}
-	}
 
 	mosquitto_loop_stop(mosq, true);
 	mosquitto_disconnect(mosq);
 	mosquitto_destroy(mosq);
 	mosquitto_lib_cleanup();
+
     ssdp->stop();
     delete ssdp;
 

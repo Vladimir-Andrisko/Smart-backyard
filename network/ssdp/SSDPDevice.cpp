@@ -11,9 +11,9 @@ void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, co
     byebye_msg = SSDP::buildNotifyByebye(uuid, deviceType);
     response_msg = SSDP::buildResponse(uuid, location, deviceType, max_age);
 
-    std::cout << "Alive msg: \n" << alive_msg << std::endl << std::endl;
-    std::cout << "Bye msg: \n" << byebye_msg << std::endl << std::endl;
-    std::cout << "Response msg: \n" << response_msg << std::endl << std::endl;
+    safeCout(std::string("=====ALIVE MSG=====\n" + alive_msg));
+    safeCout(std::string("======Bye MSG======\n" + byebye_msg));
+    safeCout(std::string("====RESPOND MSG====\n" + response_msg));
 
     setupSocket();
 }

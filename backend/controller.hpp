@@ -9,6 +9,8 @@
 #include <sstream>
 #include <algorithm>
 #include <mutex>
+#include <thread>
+#include <chrono>
 #include "mosquitto.h"
 
 #include "nlohmann/json.hpp"

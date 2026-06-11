@@ -4,6 +4,7 @@ using namespace std;
 static SSDPDevice *ssdp = nullptr;
 static mutex sleepMx;
 static condition_variable sleepCv;
+std::atomic<bool> running(true);
 
 
 void handleSignal(int){
@@ -13,10 +14,9 @@ void handleSignal(int){
     exit(0);
 }
 
-
 int main(int argc, char* argv[]){
     std::signal(SIGINT, handleSignal);
-    std::atomic<bool> running(true);
+    
     int rc;
 	struct mosquitto *mosq;
     string topic;
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]){
     }
 
     try{
-        std::cout << "putanja:  " << argv[1] << endl;
+        std::cout << "Config file path:  " << argv[1] << endl << endl;
         topic = loadTopicFromJson(argv[1]);
     }catch(const std::exception &e){
         cerr << e.what() << endl;
@@ -43,7 +43,7 @@ int main(int argc, char* argv[]){
 	mosquitto_lib_init();
 	mosq = mosquitto_new("temperature_sensor", true, NULL);
 
-	rc = mosquitto_connect(mosq, "0.0.0.0", 1883, keepAlive);
+	rc = mosquitto_connect(mosq, "localhost", 1883, keepAlive);
 	if(rc != 0){
 		printf("Client could not connect to broker! Error Code: %d\n", rc);
 		mosquitto_destroy(mosq);
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]){
         {
             int temperature = generateTemperature();
             string msg = construct_msg(temperature);
-            //cout << "\n\nTemperature sensor: \n" << msg << endl;
+            std::cout << "Temperature sensor reading: " << temperature << endl;
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
 
             sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME), [&]{return !running.load();});
@@ -76,7 +76,6 @@ int main(int argc, char* argv[]){
 	mosquitto_disconnect(mosq);
 	mosquitto_destroy(mosq);
 	mosquitto_lib_cleanup();
-    mosquitto_loop_stop(mosq, true);
 
     ssdp->stop();
     delete ssdp;
