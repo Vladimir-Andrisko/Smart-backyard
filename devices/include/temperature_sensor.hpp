@@ -18,7 +18,7 @@ static constexpr int keepAlive = 60;
 
 int generateTemperature();
 void handleSignal(int);
-std::string construct_msg(int humidity);
 std::string loadTopicFromJson(const std::string& path);
+std::string construct_msg(int temperature);
 
 #endif

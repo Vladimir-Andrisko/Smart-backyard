@@ -1,0 +1,11 @@
+{
+    "uuid": "1::light_sensor",
+    "group": "global",
+    "topic": "garden/global/sensor/light_sensor",
+    "max_age": 60,
+
+    "Service" : {
+        "State" : "ON/OFF/UNREACHABLE",
+        "Intensity" : "0~100|r"
+    }
+}

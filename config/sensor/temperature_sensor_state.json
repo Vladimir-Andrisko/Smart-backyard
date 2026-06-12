@@ -1,8 +1,0 @@
-{
-	"uuid": "1::temperature_sensor",
-	"group": "global",
-	"Service": {
-		"State": "OFF",
-		"Temperature": "20"
-	}
-}

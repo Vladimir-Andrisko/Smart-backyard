@@ -22,18 +22,16 @@ int main(int argc, char* argv[]){
     string topic;
 
     try{
-        if (argc >= 2)
+        if (argc >= 2){
             ssdp = new SSDPDevice(argv[1], 2);
-        else
-            ssdp = new SSDPDevice("1", "temperature_sensor", "config/sensor/temperature_sensor_desc.json", 10, 2);
-    }catch(const std::exception &e){
-        cerr << e.what() << endl;
-        return 1;
-    }
-
-    try{
-        std::cout << "Config file path:  " << argv[1] << endl << endl;
-        topic = loadTopicFromJson(argv[1]);
+            std::cout << "Config file path:  " << argv[1] << endl << endl;
+            topic = loadTopicFromJson(argv[1]);
+        }
+        else{
+            ssdp = new SSDPDevice("1", "temperature_sensor", "config/sensor/temperature_sensor_desc.json", 60, 2);
+            std::cout << "Config file path:  " << "config/sensor/temperature_sensor_desc.json" << endl << endl;
+            topic = loadTopicFromJson("config/sensor/temperature_sensor_desc.json");
+        }
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
@@ -97,28 +95,20 @@ int generateTemperature()
     return value;
 }
 
+string construct_msg(int temperature){
+    json data;
+    data["uuid"] = "uuid:1::temperature_sensor";
+    data["Service"] = json::object();
+    data["Service"]["Temperature"] = temperature;
 
-std::string construct_msg(int temperature){
-
-    return std::string(R"json(
-{
-    "uuid": "uuid:1::temperature_sensor",
-    "group": "global",
-    "Service": {
-        "State": "ON",
-        "Temperature": )json")
-    + std::to_string(temperature) +
-    R"json(
-    }
-}
-    )json";
+    return data.dump();
 }
 
-std::string loadTopicFromJson(const std::string& path){
-    std::ifstream file(path);
+string loadTopicFromJson(const std::string& path){
+    ifstream file(path);
 
     if(!file.is_open())
-        throw std::runtime_error("Failed to open json file");
+        throw runtime_error("Failed to open json file");
 
     json obj = json::parse(file);
     return obj["topic"].get<string>();

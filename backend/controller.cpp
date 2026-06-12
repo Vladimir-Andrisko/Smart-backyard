@@ -2,6 +2,15 @@
 
 using namespace std;
 SSDPController *ssdp = nullptr;
+unordered_set<string> registered_topics;
+unordered_map<string, json> device_state;
+unordered_map<string, RowSensor> row_sensors;
+unordered_map<string, RowActuator> row_actuators;
+
+TemperatureSensor temp_sensor;
+HumiditySensor humidity_sensor;
+LightSensor light_sensor;
+RoofActuator roof_actuator;
 
 void handleSignal(int){
     if (ssdp != nullptr){
@@ -13,20 +22,38 @@ void handleSignal(int){
 
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg) {
 	string topic(msg->topic);
-	std::string payload(static_cast<const char*>(msg->payload),msg->payloadlen);
-	
-	
-	
+	string payload(static_cast<const char*>(msg->payload),msg->payloadlen);
+	json data;
+
+	if(!registered_topics.count(topic)){
+		cout << "Topic not registered: " << topic << endl;
+		return;
+	}
+
+	try{
+		data = json::parse(payload);
+	}catch(exception e){	
+		cout << e.what() << endl;
+	}
+
+	cout << "DEBUG: " << data << endl;
+
+	if(topic == HUMIDITY_SENSOR_TOPIC){
+		humidity_sensor.humidity = data["Service"]["Humidity"].get<int>();
+		cout << "Humidity: " << humidity_sensor.humidity << endl;
+	}else if(topic == TEMPERATURE_SENSOR_TOPIC){
+		temp_sensor.temperature = data["Service"]["Temperature"].get<int>();
+		cout << "Temperature: " << temp_sensor.temperature << endl;
+	}
 }
 
 void on_connect(struct mosquitto *mosq, void *obj, int rc) {
-	printf("ID: %d\n", * (int *) obj);
 	if(rc) {
 		printf("Error with result code: %d\n", rc);
 		exit(-1);
 	}
 	mosquitto_subscribe(mosq, NULL, "garden/global/sensor/#", 0);
-	mosquitto_subscribe(mosq, NULL, "test/t1", 0);
+	mosquitto_subscribe(mosq, NULL, "garden/global/actuator/#", 0);
 	mosquitto_message_callback_set(mosq, on_message);
 }
 
@@ -34,7 +61,7 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 int main(){
 	signal(SIGINT, handleSignal);
 	struct mosquitto *mosq;
-	int rc, id=12;
+	int rc, id=1;
 
     try{
         ssdp = new SSDPController(true);
@@ -51,11 +78,22 @@ int main(){
 				return;
 			}
 			json desc = json::parse(file);
-			cout << desc << endl;
+			string topic = desc["topic"];
+			string uuid = desc["uuid"];
+			registered_topics.emplace(topic);
+
+			if(register_device(uuid)){
+				cout << "Registered new device: " << uuid << endl;
+			}
 		}catch(exception e){
-			cout << "[JSON] " << e.what() << endl;
+			cout << "[JSON ERROR] " << e.what() << endl;
 		}
 	});
+
+	ssdp->setOnDeviceRemoved([&](const std::string& uuid){
+		
+	});
+
     ssdp->start();
 
     
@@ -88,4 +126,32 @@ int main(){
     delete ssdp;
 
     return 0;
+}
+
+
+bool register_device(string uuid){
+	string name = uuid.erase(0, uuid.find("::")+2);
+
+	if(name == "temperature_sensor"){
+		temp_sensor.uuid = uuid;
+	}else if(name == "humidity_sensor"){
+		humidity_sensor.uuid = uuid;
+	}else if(name == "light_sensor"){
+		light_sensor.uuid = uuid;
+	}else if(name == "roof_actuator"){
+		roof_actuator.uuid = uuid;
+	}else if(name == "row_sensor"){
+		RowSensor dev;
+		dev.uuid = uuid;
+		row_sensors[uuid] = dev;
+	}else if(name == "row_actuator"){
+		RowActuator dev;
+		dev.uuid = uuid;
+		row_actuators[uuid] = dev;
+	}else{
+		cout << "New device not whitelisted: " << name << endl;
+		return false;
+	}
+
+	return true;
 }

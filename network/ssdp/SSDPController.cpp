@@ -42,10 +42,18 @@ void SSDPController::updateDevice(Device &dev){
 }
 
 void SSDPController::removeDevice(const std::string &uuid){
-    std::lock_guard<std::mutex> lock(mx);
-
-    auto it = device_dict.find(uuid);
-    if (it != device_dict.end()) it->second.state = DeviceState::OFF;
+    bool isRemoved = false;
+    {
+        std::lock_guard<std::mutex> lock(mx);
+        auto it = device_dict.find(uuid);
+        if(it != device_dict.end()){
+            it->second.state == DeviceState::OFF;
+            isRemoved = true;
+        }
+    }
+    if(isRemoved && onDeviceRemoved){
+        onDeviceRemoved(uuid);
+    }
 }
 
 void SSDPController::livenessCheckLoop()
@@ -167,6 +175,7 @@ void SSDPController::listenLoop(){
             updateDevice(dev);
             safeCout("[INFO] Device ALIVE: " + dev.uuid + "\n");
         }else if(msg.find("ssdp:discover") != std::string::npos){
+            updateDevice(dev);
             safeCout("[INFO] Device responding to M-search: " + dev.uuid + "\n");
         }
     }
@@ -253,3 +262,7 @@ std::vector<Device> SSDPController::getAllDevices(){
 void SSDPController::setOnDeviceAdded(std::function<void(const Device&)> callback){
     onDeviceAdded = callback;
 }
+
+void SSDPController::setOnDeviceRemoved(std::function<void(const std::string&)> callback){
+    onDeviceRemoved = callback;
+}   

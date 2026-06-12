@@ -98,18 +98,12 @@ int generateHumidity()
 
 
 std::string construct_msg(int humidity){
-    return std::string(R"json(
-{
-    "uuid": "uuid:1::humidity_sensor",
-    "group": "global",
-    "Service": {
-        "State": "ON",
-        "Humidity": )json")
-    + std::to_string(humidity) +
-    R"json(
-    }
-}
-    )json";
+    json data;
+    data["uuid"] = "uuid:1::humidity_sensor";
+    data["Service"] = json::object();
+    data["Service"]["Humidity"] = humidity;
+
+    return data.dump();
 }
 
 std::string loadTopicFromJson(const std::string& path){

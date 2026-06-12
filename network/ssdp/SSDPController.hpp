@@ -52,6 +52,8 @@ private:
     void loadWhitelist(const std::string& path);
 
     std::function<void(const Device&)> onDeviceAdded;
+    std::function<void(const std::string&)> onDeviceRemoved;
+    std::function<void(const Device&)> onDeviceExpired;
 
     std::map<std::string, Device> device_dict;
     std::unordered_set<std::string> whitelist;
@@ -82,6 +84,7 @@ public:
     void updateDevice(Device &dev);
     void removeDevice(const std::string &uuid);
     void setOnDeviceAdded(std::function<void(const Device&)> callback);
+    void setOnDeviceRemoved(std::function<void(const std::string&)> callback);
 
     std::vector<Device> getAllDevices();
 
