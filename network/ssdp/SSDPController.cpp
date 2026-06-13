@@ -24,15 +24,16 @@ void SSDPController::updateDevice(Device &dev){
     {
         std::lock_guard<std::mutex> lock(mx);
 
-        auto it = device_dict.find(dev.uuid);
+        auto it = on_devices.find(dev.uuid);
 
-        if(it != device_dict.end()){
-            if(it->second.state != DeviceState::ON) it->second.state = DeviceState::ON;
+        if(it != on_devices.end()){
             it->second.lastSeen = std::chrono::steady_clock::now();
         }else{
+            off_devices.erase(dev.uuid);
+            unreachable_devices.erase(dev.uuid);
+
             dev.lastSeen = std::chrono::steady_clock::now();
-            dev.state = DeviceState::ON;
-            device_dict[dev.uuid] = dev;
+            on_devices.emplace(dev.uuid, dev);
             isNew = true;
         }
     }
@@ -41,33 +42,43 @@ void SSDPController::updateDevice(Device &dev){
     }
 }
 
-void SSDPController::removeDevice(const std::string &uuid){
+void SSDPController::removeDevice(Device &dev){
     bool isRemoved = false;
     {
         std::lock_guard<std::mutex> lock(mx);
-        auto it = device_dict.find(uuid);
-        if(it != device_dict.end()){
-            it->second.state == DeviceState::OFF;
+        if(on_devices.count(dev.uuid) || unreachable_devices.count(dev.uuid)){
+            on_devices.erase(dev.uuid);
+            unreachable_devices.erase(dev.uuid);
             isRemoved = true;
         }
+        off_devices.emplace(dev.uuid, dev);
     }
     if(isRemoved && onDeviceRemoved){
-        onDeviceRemoved(uuid);
+        onDeviceRemoved(dev);
     }
 }
 
-void SSDPController::livenessCheckLoop()
-{
+void SSDPController::livenessCheckLoop(){
     while(running){
         auto now = std::chrono::steady_clock::now();
-
+        std::vector<Device> list;
         {
             std::lock_guard<std::mutex> lock(mx);
-            for (auto & [uuid, dev] : device_dict){
+            for (auto it = on_devices.begin(); it != on_devices.end();){
+                auto &[uuid, dev] = *it;
                 auto age = std::chrono::duration_cast<std::chrono::seconds>(now - dev.lastSeen).count();
 
-                if (dev.state == DeviceState::ON && age > dev.maxAge + 2) dev.state = DeviceState::UNREACHABLE;
+                if(age > dev.maxAge + 2){
+                    unreachable_devices.emplace(uuid, dev);
+                    list.push_back(dev);
+                    it = on_devices.erase(it);
+                }else{
+                    ++it;
+                }
             }
+        }
+        for(auto& d : list){
+            if(onDeviceExpired) onDeviceExpired(d);
         }
         std::this_thread::sleep_for(std::chrono::seconds(EXPIRE_TIMEOUT));
     }
@@ -169,7 +180,7 @@ void SSDPController::listenLoop(){
         if (dev.uuid.empty()) continue;
 
         if (msg.find("ssdp:byebye") != std::string::npos) {
-            removeDevice(dev.uuid);
+            removeDevice(dev);
             safeCout("[INFO] Device BYEBYE: " + dev.uuid + "\n");
         }else if(msg.find("ssdp:alive") != std::string::npos){
             updateDevice(dev);
@@ -248,21 +259,25 @@ void SSDPController::loadWhitelist(const std::string& path)
 }
 
 
-std::vector<Device> SSDPController::getAllDevices(){
-    std::lock_guard<std::mutex> lock(mx);
+// std::vector<Device> SSDPController::getAllDevices(){
+//     std::lock_guard<std::mutex> lock(mx);
 
-    std::vector<Device> out;
-    for (auto & [uuid, dev] : device_dict){
-        out.push_back(dev);
-    }
+//     std::vector<Device> out;
+//     for (auto & [uuid, dev] : device_dict){
+//         out.push_back(dev);
+//     }
 
-    return out;
-}
+//     return out;
+// }
 
 void SSDPController::setOnDeviceAdded(std::function<void(const Device&)> callback){
     onDeviceAdded = callback;
 }
 
-void SSDPController::setOnDeviceRemoved(std::function<void(const std::string&)> callback){
+void SSDPController::setOnDeviceRemoved(std::function<void(const Device &dev)> callback){
     onDeviceRemoved = callback;
-}   
+}
+
+void SSDPController::setOnDeviceExpired(std::function<void(const Device &dev)> callback){
+    onDeviceExpired = callback;
+}

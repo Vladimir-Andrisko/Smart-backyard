@@ -4,6 +4,7 @@ using namespace std;
 SSDPController *ssdp = nullptr;
 unordered_set<string> registered_topics;
 unordered_map<string, json> device_state;
+
 unordered_map<string, RowSensor> row_sensors;
 unordered_map<string, RowActuator> row_actuators;
 
@@ -36,7 +37,9 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		cout << e.what() << endl;
 	}
 
-	cout << "DEBUG: " << data << endl;
+	for(auto &pair : device_state){
+		cout << "DEBUG: " << pair.second << endl;
+	}
 
 	if(topic == HUMIDITY_SENSOR_TOPIC){
 		humidity_sensor.humidity = data["Service"]["Humidity"].get<int>();
@@ -44,6 +47,12 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	}else if(topic == TEMPERATURE_SENSOR_TOPIC){
 		temp_sensor.temperature = data["Service"]["Temperature"].get<int>();
 		cout << "Temperature: " << temp_sensor.temperature << endl;
+	}else if(topic == LIGHT_SENSOR_TOPIC){
+		light_sensor.intensity = data["Service"]["Intensity"].get<int>();
+		cout << "Light intensity: " << light_sensor.intensity << endl;
+	}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
+		roof_actuator.action = data["Service"]["Position"];
+		cout << "Roof: " << roof_actuator.action << endl;
 	}
 }
 
@@ -70,29 +79,7 @@ int main(){
         return 1;
     }
 
-	ssdp->setOnDeviceAdded([&](const Device& dev){
-		try{
-			ifstream file(dev.location);
-			if(!file.is_open()){
-				cout << "Failed to open device description file: " << dev.location << endl;
-				return;
-			}
-			json desc = json::parse(file);
-			string topic = desc["topic"];
-			string uuid = desc["uuid"];
-			registered_topics.emplace(topic);
-
-			if(register_device(uuid)){
-				cout << "Registered new device: " << uuid << endl;
-			}
-		}catch(exception e){
-			cout << "[JSON ERROR] " << e.what() << endl;
-		}
-	});
-
-	ssdp->setOnDeviceRemoved([&](const std::string& uuid){
-		
-	});
+	setup_callback();
 
     ssdp->start();
 
@@ -154,4 +141,49 @@ bool register_device(string uuid){
 	}
 
 	return true;
+}
+
+void setup_callback(){
+	ssdp->setOnDeviceAdded([&](const Device& dev){
+		auto it = device_state.find(dev.uuid);
+		if(it != device_state.end()){
+			it->second["State"] = "ON";
+		}else{
+			try{
+				ifstream file(dev.location);
+				if(!file.is_open()){
+					cout << "Failed to open device description file: " << dev.location << endl;
+					return;
+				}
+				json desc = json::parse(file);
+				json service = desc["Service"];
+				string topic = desc["topic"];
+				string uuid = desc["uuid"];
+
+				service["State"] = "ON";
+				registered_topics.emplace(topic);
+
+				device_state[dev.uuid] = service;
+				if(register_device(uuid)){
+					cout << "Registered new device: " << uuid << endl;
+				}
+			}catch(const exception &e){
+				cout << "[JSON ERROR] " << e.what() << endl;
+			}
+		}
+	});
+
+	ssdp->setOnDeviceRemoved([&](const Device& dev){
+		auto it = device_state.find(dev.uuid);
+		if(it != device_state.end()){
+			it->second["State"] = "OFF";
+		}
+	});
+
+	ssdp->setOnDeviceExpired([&](const Device& dev){
+		auto it = device_state.find(dev.uuid);
+		if(it != device_state.end()){
+			it->second["State"] = "UNREACHABLE";
+		}
+	});
 }

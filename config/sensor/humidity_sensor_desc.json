@@ -6,6 +6,7 @@
 
     "Service" : {
         "State" : "ON/OFF/UNREACHABLE",
-        "Humidity" : "0~100|r"
+        "Humidity" : "0~100|r",
+        "Unit": "%"
     }
 }

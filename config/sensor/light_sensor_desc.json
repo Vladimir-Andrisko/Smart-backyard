@@ -6,6 +6,7 @@
 
     "Service" : {
         "State" : "ON/OFF/UNREACHABLE",
-        "Intensity" : "0~100|r"
+        "Intensity" : "0~100|r",
+        "Unit": "cd"
     }
 }

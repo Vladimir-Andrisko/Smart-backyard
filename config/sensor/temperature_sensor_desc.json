@@ -6,6 +6,7 @@
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",
-        "temperature": "-50~50|r"
+        "Temperature": "-50~50|r",
+        "Unit": "C"
     }
 }

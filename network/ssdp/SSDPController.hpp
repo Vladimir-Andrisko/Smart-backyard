@@ -22,15 +22,12 @@
 
 using json = nlohmann::json;
 
-enum class DeviceState{ON, OFF, UNREACHABLE};
-
 struct Device{
     std::string uuid;
     std::string location;
     std::string st;
 
     std::chrono::steady_clock::time_point lastSeen;
-    DeviceState state;
     int maxAge;
 };
 
@@ -52,10 +49,13 @@ private:
     void loadWhitelist(const std::string& path);
 
     std::function<void(const Device&)> onDeviceAdded;
-    std::function<void(const std::string&)> onDeviceRemoved;
-    std::function<void(const Device&)> onDeviceExpired;
+    std::function<void(const Device &)> onDeviceRemoved;
+    std::function<void(const Device &)> onDeviceExpired;
 
-    std::map<std::string, Device> device_dict;
+    std::map<std::string, Device> on_devices;
+    std::map<std::string, Device> off_devices;
+    std::map<std::string, Device> unreachable_devices;
+    std::map<std::string, Device> alive_dev;
     std::unordered_set<std::string> whitelist;
 
     int socket_fd_;
@@ -82,11 +82,12 @@ public:
     ~SSDPController();
 
     void updateDevice(Device &dev);
-    void removeDevice(const std::string &uuid);
+    void removeDevice(Device &dev);
     void setOnDeviceAdded(std::function<void(const Device&)> callback);
-    void setOnDeviceRemoved(std::function<void(const std::string&)> callback);
+    void setOnDeviceRemoved(std::function<void(const Device &dev)> callback);
+    void setOnDeviceExpired(std::function<void(const Device &dev)> callback);
 
-    std::vector<Device> getAllDevices();
+    // std::vector<Device> getAllDevices();
 
     void start();
     void stop();
