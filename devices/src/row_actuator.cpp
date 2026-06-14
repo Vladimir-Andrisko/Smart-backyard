@@ -1,4 +1,4 @@
-#include "roof_actuator.hpp"
+#include "row_actuator.hpp"
 
 using namespace std;
 SSDPDevice *ssdp = nullptr;
@@ -6,7 +6,7 @@ static string uuid;
 static string pub_topic;
 static string state_open;
 static string state_closed;
-static string current_position;
+static string current_position = "CLOSED";
 static int keepAlive = 30;
 
 atomic<bool> running = true;
@@ -23,13 +23,15 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc){
 		printf("Error with result code: %d\n", rc);
 		exit(-1);
 	}
-	mosquitto_subscribe(mosq, NULL, ROOF_ACTUATOR_TOPIC_SUB, mqtt_QoS);
+	mosquitto_subscribe(mosq, NULL, ROW_ACTUATOR_TOPIC_SUB, mqtt_QoS);
 	mosquitto_message_callback_set(mosq, on_message);
 }
 
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg){
 	string payload(static_cast<const char*>(msg->payload), msg->payloadlen);
     json data;
+
+    cout << "Podatak: " << payload << endl;
     try{
 		data = json::parse(payload);
 	}catch(const exception &e){	
@@ -42,13 +44,19 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
     }
 
     if(new_position != current_position){
-        int time = generateRandomTime();
-        this_thread::sleep_for(chrono::seconds(time));
         current_position = new_position;
-        cout << "New actuator state: " << current_position << endl;
-        string msg = construct_msg(current_position);
-        mosquitto_publish(mosq, NULL, pub_topic.c_str(), msg.size(), msg.c_str(), mqtt_QoS, false);
+        std::thread([=](){
+            int time = generateRandomTime();
+            std::this_thread::sleep_for(std::chrono::seconds(time));
+
+            string msg = construct_msg(current_position);
+            mosquitto_publish(mosq, NULL, pub_topic.c_str(), msg.size(), msg.c_str(), 0, false);
+
+        }).detach();
     }
+
+    cout << "Actuator state: " << current_position << endl;
+    
 }
 
 
@@ -115,7 +123,7 @@ int generateRandomTime()
     static random_device rd;
     static mt19937 gen(rd());
 
-    uniform_int_distribution<> dist(1, 3);
+    uniform_int_distribution<> dist(3, 5);
     int value = (int)dist(gen);
 
     return value;
@@ -142,6 +150,9 @@ void parseDesc(const string &file_path){
     uuid = string("uuid:" + desc["uuid"].get<string>());
     pub_topic = desc["topic"];
     keepAlive = desc["keepAlive"];
+
+    cout << "PUB topic: " << pub_topic << endl;
+    cout << "SUB topic: " << ROW_ACTUATOR_TOPIC_SUB << endl;
 
     json service = desc["Service"];
     string position = service["Position"];

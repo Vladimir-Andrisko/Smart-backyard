@@ -2,6 +2,7 @@
 
 using namespace std;
 SSDPController *ssdp = nullptr;
+atomic<bool> running = true;
 unordered_set<string> registered_topics;
 unordered_map<string, json> device_state;
 
@@ -37,18 +38,22 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	}else if(topic == LIGHT_SENSOR_TOPIC){
 		device_state[data["uuid"]]["Intensity"] = data["Service"]["Intensity"].get<int>();
 	}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
+
 		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<string>();
+
 	}else if(topic.find("/sensor/row_sensor") != std::string::npos){
 		device_state[data["uuid"]]["Humidity"] = data["Service"]["Humidity"].get<int>();
 	}else if(topic.find("/actuator/row_actuator") != std::string::npos){
 		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<string>();
+	}else if(topic == APP_TOPIC_SUB){
+		parseAppData(data, mosq);
 	}
 
-	cout << "====================================\n";
+	cout << "======================================================================================\n";
 	for(auto &pair : device_state){
-		cout << "DEVICE STATES: " << pair.second << endl;
+		cout << pair.first << ": " << pair.second << endl;
 	}
-	cout << "====================================\n\n";
+	cout << "======================================================================================\n\n";
 }
 
 void on_connect(struct mosquitto *mosq, void *obj, int rc) {
@@ -57,9 +62,10 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 		exit(-1);
 	}
 	mosquitto_subscribe(mosq, NULL, "garden/global/sensor/#", 0);
-	mosquitto_subscribe(mosq, NULL, "garden/global/actuator/#", 0);
+	mosquitto_subscribe(mosq, NULL, "garden/global/actuator/roof_actuator", 0);
 	mosquitto_subscribe(mosq, NULL, "garden/+/sensor/row_sensor", 0);
 	mosquitto_subscribe(mosq, NULL, "garden/+/actuator/row_actuator", 0);
+	mosquitto_subscribe(mosq, NULL, APP_TOPIC_SUB, 0);
 	mosquitto_message_callback_set(mosq, on_message);
 }
 
@@ -99,15 +105,15 @@ int main(){
 	while((c = getchar()) != 'q'){
 		if(c == 'r'){
 			if(roof_msg == "OPEN"){
-				msg = generateActuatorMsg("uuid:1:roof_actuator", "CLOSED");
+				msg = generateActuatorMsg("uuid:1::roof_actuator", "CLOSED");
 				roof_msg = "CLOSED";
 			}
 			else{
 				roof_msg = "OPEN";
-				msg = generateActuatorMsg("uuid:1:roof_actuator", "OPEN");
+				msg = generateActuatorMsg("uuid:1::roof_actuator", "OPEN");
 			}
-			cout << "Sending message to roof: " << roof_msg << "\n";
-			int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);
+			cout << "Sending message to valve: " << msg << "\n";
+			int ret = mosquitto_publish(mosq, NULL, "garden/global/actuator/roof_actuator/cmd", msg.size(), msg.c_str(), 0, false);
 		}
 	}
 
@@ -172,4 +178,46 @@ string generateActuatorMsg(string uuid, string position){
 	msg["Service"]["Position"] = position;
 
 	return msg.dump();
+}
+
+void parseAppData(json &data, struct mosquitto *mosq){
+	string command_type = data["command_type"];
+	string uuid = data["uuid"];
+	string group = data["group"];
+	cout << "Command type: " << command_type << endl;
+	cout << "UUID: " << uuid << endl;
+
+	if(command_type == "SET"){
+		json serv = data["Service"];
+		cout << "Service: " << serv.dump() << endl;
+		string msg = generateActuatorMsg(uuid, serv["Position"]);
+		string top = generateTopic(uuid);
+		int ret = mosquitto_publish(mosq, NULL, top.c_str(), msg.size(), msg.c_str(), 0, false);
+	}else if(command_type == "GET"){
+		json device_info = device_state[uuid];
+		string msg = device_info.dump();
+		int ret = mosquitto_publish(mosq, NULL, APP_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);
+	}
+}
+
+string generateTopic(string uuid){
+	int pos = 0;
+	if(uuid == "uuid:1::roof_actuator"){
+		return ROOF_ACTUATOR_TOPIC_PUB;
+	}
+
+	size_t start = uuid.find(':');
+    size_t end = uuid.find("::");
+    if(end != string::npos){
+        string id = uuid.substr(start + 1, end - start - 1);
+        return "garden/row" + id + "/actuator/row_actuator";
+    }
+
+    return "";
+}
+
+void control_loop(){
+	while(running){
+		this_thread::sleep_for(chrono::milliseconds(REFRESH_RATE));
+	}
 }
