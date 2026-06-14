@@ -1,12 +1,12 @@
 {
     "uuid": "1::roof_actuator",
     "group": "global",
-    "sub_topic": "garden/global/actuator/roof_actuator/subscriber",
-    "pub_topic": "garden/global/actuator/roof_actuator/publisher",
-    "max_age": 60,
+    "topic": "garden/global/actuator/roof_actuator",
+    "max_age": 150,
+    "keepAlive": 10,
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",
-        "Position": "OPEN/CLOSED"
+        "Position": "OPEN/CLOSE"
     }
 }

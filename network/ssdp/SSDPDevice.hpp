@@ -16,9 +16,9 @@
 
 #include "nlohmann/json.hpp"
 
-static constexpr int NOTIFY_TIMEOUT = 30;
 static constexpr int SOCKET_TIMEOUT = 1;
 static constexpr int BUFFER_SIZE = 1024;
+static constexpr int QoS = 1;
 
 using json = nlohmann::json;
 
@@ -37,6 +37,7 @@ private:
     void safeCout(const std::string msg);
 
     int socket_fd_;
+    int notify_timeout;
     sockaddr_in multicastAddr{};
 
     std::string alive_msg;
@@ -55,7 +56,6 @@ private:
     std::string location;
     std::string uuid;
     std::string deviceType;
-    int QoS;
     
 public:
     SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, const int& max_age, int qos);

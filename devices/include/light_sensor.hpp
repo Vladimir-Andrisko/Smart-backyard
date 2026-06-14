@@ -14,8 +14,8 @@
 #include "nlohmann/json.hpp"
 
 static constexpr int SLEEP_TIME = 10;
-static constexpr int QoS = 0;
-static constexpr int keepAlive = 60;
+static constexpr int mqtt_QoS = 0;
+static constexpr int mqtt_alive = 60;
 
 int generateBrightness();
 void handleSignal(int);

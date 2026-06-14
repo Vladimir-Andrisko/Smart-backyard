@@ -13,9 +13,8 @@
 using json = nlohmann::json;
 
 static constexpr int SLEEP_TIME = 10;
-static constexpr int QoS = 0;
-static constexpr int keepAlive = 60;
-static constexpr int SSDP_QoS = 2;
+static constexpr int mqtt_QoS = 0;
+static constexpr int mqtt_alive = 120;
 
 void handleSignal(int);
 int generateHumidity();

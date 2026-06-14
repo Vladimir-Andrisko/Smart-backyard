@@ -37,6 +37,7 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		device_state[data["uuid"]]["Intensity"] = data["Service"]["Intensity"].get<int>();
 	}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
 		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<string>();
+		cout << "ROOF: " << device_state[data["uuid"]] << endl;
 	}else if(topic.find("/sensor/row_sensor") != std::string::npos){
 		device_state[data["uuid"]]["Humidity"] = data["Service"]["Humidity"].get<int>();
 	}else if(topic.find("/actuator/row_actuator") != std::string::npos){
@@ -92,11 +93,23 @@ int main(){
 
 	mosquitto_loop_start(mosq);
 
-	// cout << "Sending message to roof\n\n";
-	// int ret = mosquitto_publish(mosq, NULL, "garden/global/actuator/roof_actuator", 17, "Hello controller", 0, false);
-	// printf("Publish ret = %d\n", ret);
-
-	getchar();
+	string roof_msg = "OPEN";
+	string msg;
+	char c;
+	while((c = getchar()) != 'q'){
+		if(c == 'r'){
+			if(roof_msg == "OPEN"){
+				msg = generateActuatorMsg("uuid:1:roof_actuator", "CLOSE");
+				roof_msg = "CLOSE";
+			}
+			else{
+				roof_msg = "OPEN";
+				msg = generateActuatorMsg("uuid:1:roof_actuator", "OPEN");
+			}
+			cout << "Sending message to roof: " << roof_msg << "\n";
+			int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);
+		}
+	}
 
 	mosquitto_loop_stop(mosq, true);
 	mosquitto_disconnect(mosq);
@@ -150,4 +163,13 @@ void setup_callback(){
 			it->second["State"] = "UNREACHABLE";
 		}
 	});
+}
+
+string generateActuatorMsg(string uuid, string position){
+	json msg;
+	msg["uuid"] = uuid;
+	msg["Service"] = json::object();
+	msg["Service"]["Position"] = position;
+
+	return msg.dump();
 }

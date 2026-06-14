@@ -1,41 +1,42 @@
 #include "light_sensor.hpp"
 
 using namespace std;
+
 static SSDPDevice *ssdp = nullptr;
 static mutex sleepMx;
 static condition_variable sleepCv;
-std::atomic<bool> running(true);
+atomic<bool> running(true);
 
 static string uuid;
 static string topic;
 static int max_intensity;
 static int min_intensity;
+static int keep_alive = 30;
 
 void handleSignal(int){
-    if(ssdp != nullptr){
-        delete ssdp;
-    }
-    exit(0);
+    running = false;
+    sleepCv.notify_all();
 }
 
 int main(int argc, char* argv[]){
-    std::signal(SIGINT, handleSignal);
+    signal(SIGINT, handleSignal);
+    signal(SIGTERM, handleSignal);
     
     int rc;
 	struct mosquitto *mosq;
 
     try{
         if (argc >= 2){
-            ssdp = new SSDPDevice(argv[1], 2);
             cout << "Config file path:  " << argv[1] << endl << endl;
             parseDesc(string(argv[1]));
+            ssdp = new SSDPDevice(argv[1], keep_alive);
         }
         else{
-            ssdp = new SSDPDevice("1", "light_sensor", "config/sensor/light_sensor_desc.json", 60, 2);
             cout << "Config file path:  " << "config/sensor/light_sensor_desc.json" << endl << endl;
             parseDesc(string("config/sensor/light_sensor_desc.json"));
+            ssdp = new SSDPDevice("1", "light_sensor", "config/sensor/light_sensor_desc.json", 60, keep_alive);
         }
-    }catch(const std::exception &e){
+    }catch(const exception &e){
         cerr << e.what() << endl;
         return 1;
     }
@@ -44,20 +45,13 @@ int main(int argc, char* argv[]){
 	mosquitto_lib_init();
 	mosq = mosquitto_new("light_sensor", true, NULL);
 
-	rc = mosquitto_connect(mosq, "localhost", 1883, keepAlive);
+	rc = mosquitto_connect(mosq, "localhost", 1883, mqtt_alive);
 	if(rc != 0){
 		printf("Client could not connect to broker! Error Code: %d\n", rc);
 		mosquitto_destroy(mosq);
 		return -1;
 	}
     mosquitto_loop_start(mosq);
-
-
-    std::thread exitThread([&]() {
-        std::cin.get();
-        running = false;
-        sleepCv.notify_all();
-    });
 
     {
         unique_lock<mutex> ul(sleepMx);
@@ -66,13 +60,11 @@ int main(int argc, char* argv[]){
             int brightness = generateBrightness();
             string msg = construct_msg(brightness);
             cout << "Light sensor reading: " << brightness << endl;
-            int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
+            int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), mqtt_QoS, false);
 
             sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME), [&]{return !running.load();});
         }
     }
-
-    exitThread.join();
 
 	mosquitto_disconnect(mosq);
 	mosquitto_destroy(mosq);
@@ -96,7 +88,7 @@ int generateBrightness()
     int hour = local.tm_hour;
     double x = hour / 24.0;
 
-    double base = std::max(0.0, std::sin(M_PI * x));
+    double base = max(0.0, sin(M_PI * x));
     double intensity = min_intensity + base * (max_intensity - min_intensity);
 
 
@@ -127,6 +119,8 @@ void parseDesc(const string &file_path){
     file.close();
 
     uuid = string("uuid:" + desc["uuid"].get<string>());
+    keep_alive = desc["keepAlive"];
+
     topic = desc["topic"];
 
     json service = desc["Service"];

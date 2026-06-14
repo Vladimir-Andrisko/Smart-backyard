@@ -10,30 +10,30 @@ static string uuid;
 static string topic;
 static int max_humidity;
 static int min_humidity;
+static int keep_alive = 30;
 
 void handleSignal(int){
-    if(ssdp != nullptr){
-        delete ssdp;
-        ssdp = nullptr;
-    }
-    exit(0);
+    running = false;
+        sleepCv.notify_all();
 }
 
 int main(int argc, char* argv[]){
     signal(SIGINT, handleSignal);
+    signal(SIGTERM, handleSignal);
+
     int rc;
 	struct mosquitto *mosq;
 
     try{
         if (argc >= 2) {
-            ssdp = new SSDPDevice(argv[1], 2);
             cout << "Config file path:  " << argv[1] << endl << endl;
             parseDesc(string(argv[1]));
+            ssdp = new SSDPDevice(argv[1], keep_alive);
         }
         else{
-            ssdp = new SSDPDevice("1", "row_sensor", "config/sensor/row_sensor/row1_sensor_desc.json", 10, SSDP_QoS);
             cout << "Config file path:  " << "config/sensor/row_sensor/row1_sensor_desc.json" << endl << endl;
             parseDesc(string("config/sensor/row_sensor/row1_sensor_desc.json"));
+            ssdp = new SSDPDevice("1", "row_sensor", "config/sensor/row_sensor/row1_sensor_desc.json", 60, keep_alive);
         }
     }catch(const std::exception &e){
         cerr << e.what() << endl;
@@ -45,20 +45,13 @@ int main(int argc, char* argv[]){
     string subscribe_string = "row_sensor:" + uuid;
 	mosq = mosquitto_new(subscribe_string.c_str(), true, NULL);
 
-	rc = mosquitto_connect(mosq, "localhost", 1883, keepAlive);
+	rc = mosquitto_connect(mosq, "localhost", 1883, mqtt_alive);
 	if(rc != 0){
 		printf("Client could not connect to broker! Error Code: %d\n", rc);
 		mosquitto_destroy(mosq);
 		return -1;
 	}
     mosquitto_loop_start(mosq);
-
-
-    std::thread exitThread([&]() {
-        std::cin.get();
-        running = false;
-        sleepCv.notify_all();
-    });
 
     {
         unique_lock<mutex> ul(sleepMx);
@@ -67,12 +60,10 @@ int main(int argc, char* argv[]){
             int humidity = generateHumidity();
             cout << "Row humidity sensor reading: " << humidity << endl;
             string msg = construct_msg(humidity);
-            int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
+            int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), mqtt_QoS, false);
             sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME));
         }
     }
-
-    exitThread.join();
 
 	mosquitto_disconnect(mosq);
 	mosquitto_destroy(mosq);
@@ -120,6 +111,7 @@ void parseDesc(const string &file_path){
 
     uuid = string("uuid:" + desc["uuid"].get<string>());
     topic = desc["topic"];
+    keep_alive = desc["keepAlive"];
 
     json service = desc["Service"];
     string humidity = service["Humidity"];

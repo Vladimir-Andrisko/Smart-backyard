@@ -18,16 +18,16 @@ void SSDPDevice::init(const std::string& uuid, const std::string& deviceType, co
     setupSocket();
 }
 
-SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, const int& max_age, int qos)
+SSDPDevice::SSDPDevice(const std::string& uuid, const std::string& deviceType, const std::string& location, const int& max_age, int notify_timeout)
 {
-    this->QoS = qos;
+    this->notify_timeout = notify_timeout;
     init(uuid, deviceType, location, max_age);
 }
 
-SSDPDevice::SSDPDevice(const std::string& location, int qos)
+SSDPDevice::SSDPDevice(const std::string& location, int notify_timeout)
 {
     try{
-        this->QoS = qos;
+        this->notify_timeout = notify_timeout;
 
         std::ifstream file(location);
         if(!file.is_open()){
@@ -127,7 +127,7 @@ void SSDPDevice::aliveLoop(){
     std::unique_lock<std::mutex> mx(sleepMutex);
 
     while(running){
-        if(sleepCv.wait_for(mx, std::chrono::seconds(NOTIFY_TIMEOUT), [this]{return !running;})){
+        if(sleepCv.wait_for(mx, std::chrono::seconds(notify_timeout), [this]{return !running;})){
             break;
         }
         sendNotifyAlive();

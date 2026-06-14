@@ -3,6 +3,7 @@
     "group": "global",
     "topic": "garden/global/sensor/temperature_sensor",
     "max_age": 60,
+    "keepAlive": 10,
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",
