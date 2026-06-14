@@ -1,5 +1,5 @@
-#ifndef TEMPERATURE_SENSOR_HPP
-#define TEMPERATURE_SENSOR_HPP
+#ifndef LIGHT_SENSOR_HPP
+#define LIGHT_SENSOR_HPP
 
 #include "network/ssdp/SSDPDevice.hpp"
 #include "mosquitto.h"
@@ -17,9 +17,9 @@ static constexpr int SLEEP_TIME = 10;
 static constexpr int QoS = 0;
 static constexpr int keepAlive = 60;
 
-int generateTemperature();
+int generateBrightness();
 void handleSignal(int);
 void parseDesc(const std::string &file_path);
-std::string construct_msg(int temperature);
+std::string construct_msg(int brightness);
 
 #endif

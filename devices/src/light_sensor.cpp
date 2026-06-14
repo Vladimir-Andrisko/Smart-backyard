@@ -1,4 +1,4 @@
-#include "temperature_sensor.hpp"
+#include "light_sensor.hpp"
 
 using namespace std;
 static SSDPDevice *ssdp = nullptr;
@@ -8,8 +8,8 @@ std::atomic<bool> running(true);
 
 static string uuid;
 static string topic;
-static int max_temp;
-static int min_temp;
+static int max_intensity;
+static int min_intensity;
 
 void handleSignal(int){
     if(ssdp != nullptr){
@@ -31,9 +31,9 @@ int main(int argc, char* argv[]){
             parseDesc(string(argv[1]));
         }
         else{
-            ssdp = new SSDPDevice("1", "temperature_sensor", "config/sensor/temperature_sensor_desc.json", 60, 2);
-            cout << "Config file path:  " << "config/sensor/temperature_sensor_desc.json" << endl << endl;
-            parseDesc(string("config/sensor/temperature_sensor_desc.json"));
+            ssdp = new SSDPDevice("1", "light_sensor", "config/sensor/light_sensor_desc.json", 60, 2);
+            cout << "Config file path:  " << "config/sensor/light_sensor_desc.json" << endl << endl;
+            parseDesc(string("config/sensor/light_sensor_desc.json"));
         }
     }catch(const std::exception &e){
         cerr << e.what() << endl;
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]){
 
     ssdp->start();
 	mosquitto_lib_init();
-	mosq = mosquitto_new("temperature_sensor", true, NULL);
+	mosq = mosquitto_new("light_sensor", true, NULL);
 
 	rc = mosquitto_connect(mosq, "localhost", 1883, keepAlive);
 	if(rc != 0){
@@ -63,9 +63,9 @@ int main(int argc, char* argv[]){
         unique_lock<mutex> ul(sleepMx);
         while (running)
         {
-            int temperature = generateTemperature();
-            string msg = construct_msg(temperature);
-            cout << "Temperature sensor reading: " << temperature << endl;
+            int brightness = generateBrightness();
+            string msg = construct_msg(brightness);
+            cout << "Light sensor reading: " << brightness << endl;
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
 
             sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME), [&]{return !running.load();});
@@ -83,25 +83,36 @@ int main(int argc, char* argv[]){
 }
 
 
-int generateTemperature()
+int generateBrightness()
 {
     static random_device rd;
     static mt19937 gen(rd());
+    static normal_distribution<> noise(0.0, 5.0);
 
-    normal_distribution<> dist(15.0, 15.0);
+    auto now = chrono::system_clock::now();
+    time_t t = chrono::system_clock::to_time_t(now);
+    tm local = *localtime(&t);
 
-    int value = (int)round(dist(gen));
-    if (value < min_temp) value = min_temp;
-    if (value > max_temp) value = max_temp;
+    int hour = local.tm_hour;
+    double x = hour / 24.0;
 
-    return value;
+    double base = std::max(0.0, std::sin(M_PI * x));
+    double intensity = min_intensity + base * (max_intensity - min_intensity);
+
+
+    intensity += noise(gen);
+
+    if (intensity < min_intensity) intensity = min_intensity;
+    if (intensity > max_intensity) intensity = max_intensity;
+
+    return static_cast<int>(round(intensity));
 }
 
-string construct_msg(int temperature){
+string construct_msg(int brightness){
     json data;
     data["uuid"] = uuid;
     data["Service"] = json::object();
-    data["Service"]["Temperature"] = temperature;
+    data["Service"]["Intensity"] = brightness;
 
     return data.dump();
 }
@@ -119,11 +130,11 @@ void parseDesc(const string &file_path){
     topic = desc["topic"];
 
     json service = desc["Service"];
-    string temperature = service["Temperature"];
+    string brightness = service["Intensity"];
     
-    size_t tilde = temperature.find('~');
-    size_t pipe  = temperature.find('|');
+    size_t tilde = brightness.find('~');
+    size_t pipe  = brightness.find('|');
 
-    min_temp = stoi(temperature.substr(0, tilde));
-    max_temp = stoi(temperature.substr(tilde + 1, pipe - tilde - 1));
+    min_intensity = stoi(brightness.substr(0, tilde));
+    max_intensity = stoi(brightness.substr(tilde + 1, pipe - tilde - 1));
 }

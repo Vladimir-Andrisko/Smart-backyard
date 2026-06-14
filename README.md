@@ -21,10 +21,7 @@ mosquitto
 
 ---
 
-## 3. Test Compile
-
-NOTE: This is a test compile, there is no need to run mqtt broker mosquitto.
-
+## 3. Compile
 
 ```
 mkdir build && cd build
@@ -32,3 +29,18 @@ cmake ..
 make
 ```
 all executables will be in Smart-backyard/bin/
+
+## 4. Run
+
+Go back to project root:
+```
+cd ..
+```
+Make the script executable:
+```
+sudo chmod +x run.sh
+```
+Run the script:
+```
+./run.sh
+```

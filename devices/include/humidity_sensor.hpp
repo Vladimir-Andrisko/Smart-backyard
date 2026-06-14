@@ -21,6 +21,7 @@ void handleSignal(int);
 int generateHumidity();
 std::string construct_msg(int humidity);
 std::string loadTopicFromJson(const std::string& path);
+void parseDesc(const std::string &file_path);
 
 
 #endif

@@ -6,6 +6,10 @@ static mutex sleepMx;
 static condition_variable sleepCv;
 atomic<bool> running(true);
 
+static string uuid;
+static string topic;
+static int max_humidity;
+static int min_humidity;
 
 void handleSignal(int){
     if(ssdp != nullptr){
@@ -17,22 +21,20 @@ void handleSignal(int){
 
 int main(int argc, char* argv[]){
     signal(SIGINT, handleSignal);
-    
     int rc;
 	struct mosquitto *mosq;
-    string topic;
 
     try{
-        if (argc >= 2) ssdp = new SSDPDevice(argv[1], 5);
-        else ssdp = new SSDPDevice("1", "humidity_sensor", "config/sensor/humidity_sensor_desc.json", 10, SSDP_QoS);
-    }catch(const std::exception &e){
-        cerr << e.what() << endl;
-        return 1;
-    }
-
-    try{
-        cout << "Config file path: " << argv[1] << endl;
-        topic = loadTopicFromJson(argv[1]);
+        if (argc >= 2) {
+            ssdp = new SSDPDevice(argv[1], 2);
+            cout << "Config file path:  " << argv[1] << endl << endl;
+            parseDesc(string(argv[1]));
+        }
+        else{
+            ssdp = new SSDPDevice("1", "humidity_sensor", "config/sensor/humidity_sensor_desc.json", 10, SSDP_QoS);
+            cout << "Config file path:  " << "config/sensor/humidity_sensor_desc.json" << endl << endl;
+            parseDesc(string("config/sensor/humidity_sensor_desc.json"));
+        }
     }catch(const std::exception &e){
         cerr << e.what() << endl;
         return 1;
@@ -65,7 +67,6 @@ int main(int argc, char* argv[]){
             cout << "Humidity sensor reading: " << humidity << endl;
             string msg = construct_msg(humidity);
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), QoS, false);
-            
             sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME));
         }
     }
@@ -90,8 +91,8 @@ int generateHumidity()
 
     int value = (int)std::round(dist(gen));
 
-    if (value < 0) value = 0;
-    if (value > 100) value = 100;
+    if (value < min_humidity) value = min_humidity;
+    if (value > max_humidity) value = max_humidity;
 
     return value;
 }
@@ -99,19 +100,31 @@ int generateHumidity()
 
 std::string construct_msg(int humidity){
     json data;
-    data["uuid"] = "uuid:1::humidity_sensor";
+    data["uuid"] = uuid;
     data["Service"] = json::object();
     data["Service"]["Humidity"] = humidity;
 
     return data.dump();
 }
 
-std::string loadTopicFromJson(const std::string& path){
-    std::ifstream file(path);
+void parseDesc(const string &file_path){
+    ifstream file(file_path);
 
     if(!file.is_open())
-        throw std::runtime_error("Failed to open json file");
+        throw runtime_error("Unable to open description file!");
 
-    json obj = json::parse(file);
-    return obj["topic"].get<string>();
+    json desc = json::parse(file);
+    file.close();
+
+    uuid = string("uuid:" + desc["uuid"].get<string>());
+    topic = desc["topic"];
+
+    json service = desc["Service"];
+    string humidity = service["Humidity"];
+    
+    size_t tilde = humidity.find('~');
+    size_t pipe  = humidity.find('|');
+
+    min_humidity = stoi(humidity.substr(0, tilde));
+    max_humidity = stoi(humidity.substr(tilde + 1, pipe - tilde - 1));
 }

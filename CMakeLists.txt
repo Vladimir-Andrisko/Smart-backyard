@@ -79,6 +79,18 @@ target_link_libraries(temperature_sensor
     ${MOSQUITTO_LIBRARIES}
 )
 
+add_executable(light_sensor devices/src/light_sensor.cpp)
+
+target_include_directories(light_sensor PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/devices/include
+    ${MOSQUITTO_INCLUDE_DIRS}
+)
+
+target_link_libraries(light_sensor
+    ssdp
+    ${MOSQUITTO_LIBRARIES}
+)
+
 # ==========================
 #       ACTUATOR
 # ==========================

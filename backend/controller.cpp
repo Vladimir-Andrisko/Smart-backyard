@@ -5,14 +5,6 @@ SSDPController *ssdp = nullptr;
 unordered_set<string> registered_topics;
 unordered_map<string, json> device_state;
 
-unordered_map<string, RowSensor> row_sensors;
-unordered_map<string, RowActuator> row_actuators;
-
-TemperatureSensor temp_sensor;
-HumiditySensor humidity_sensor;
-LightSensor light_sensor;
-RoofActuator roof_actuator;
-
 void handleSignal(int){
     if (ssdp != nullptr){
 		delete ssdp;
@@ -37,22 +29,18 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		cout << e.what() << endl;
 	}
 
-	for(auto &pair : device_state){
-		cout << "DEBUG: " << pair.second << endl;
+	if(topic == HUMIDITY_SENSOR_TOPIC){
+		device_state[data["uuid"]]["Humidity"] = data["Service"]["Humidity"].get<int>();
+	}else if(topic == TEMPERATURE_SENSOR_TOPIC){
+		device_state[data["uuid"]]["Temperature"] = data["Service"]["Temperature"].get<int>();
+	}else if(topic == LIGHT_SENSOR_TOPIC){
+		device_state[data["uuid"]]["Intensity"] = data["Service"]["Intensity"].get<int>();
+	}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
+		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<int>();
 	}
 
-	if(topic == HUMIDITY_SENSOR_TOPIC){
-		humidity_sensor.humidity = data["Service"]["Humidity"].get<int>();
-		cout << "Humidity: " << humidity_sensor.humidity << endl;
-	}else if(topic == TEMPERATURE_SENSOR_TOPIC){
-		temp_sensor.temperature = data["Service"]["Temperature"].get<int>();
-		cout << "Temperature: " << temp_sensor.temperature << endl;
-	}else if(topic == LIGHT_SENSOR_TOPIC){
-		light_sensor.intensity = data["Service"]["Intensity"].get<int>();
-		cout << "Light intensity: " << light_sensor.intensity << endl;
-	}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
-		roof_actuator.action = data["Service"]["Position"];
-		cout << "Roof: " << roof_actuator.action << endl;
+	for(auto &pair : device_state){
+		cout << "DEVICE STATES: " << pair.second << endl;
 	}
 }
 
@@ -80,10 +68,8 @@ int main(){
     }
 
 	setup_callback();
-
     ssdp->start();
 
-    
 	mosquitto_lib_init();
 	mosq = mosquitto_new("smart_garden_controller", true, &id);
 	mosquitto_connect_callback_set(mosq, on_connect);
@@ -116,33 +102,6 @@ int main(){
 }
 
 
-bool register_device(string uuid){
-	string name = uuid.erase(0, uuid.find("::")+2);
-
-	if(name == "temperature_sensor"){
-		temp_sensor.uuid = uuid;
-	}else if(name == "humidity_sensor"){
-		humidity_sensor.uuid = uuid;
-	}else if(name == "light_sensor"){
-		light_sensor.uuid = uuid;
-	}else if(name == "roof_actuator"){
-		roof_actuator.uuid = uuid;
-	}else if(name == "row_sensor"){
-		RowSensor dev;
-		dev.uuid = uuid;
-		row_sensors[uuid] = dev;
-	}else if(name == "row_actuator"){
-		RowActuator dev;
-		dev.uuid = uuid;
-		row_actuators[uuid] = dev;
-	}else{
-		cout << "New device not whitelisted: " << name << endl;
-		return false;
-	}
-
-	return true;
-}
-
 void setup_callback(){
 	ssdp->setOnDeviceAdded([&](const Device& dev){
 		auto it = device_state.find(dev.uuid);
@@ -158,15 +117,12 @@ void setup_callback(){
 				json desc = json::parse(file);
 				json service = desc["Service"];
 				string topic = desc["topic"];
-				string uuid = desc["uuid"];
+
+				cout << "TOPIC: " << topic << endl;
 
 				service["State"] = "ON";
 				registered_topics.emplace(topic);
-
 				device_state[dev.uuid] = service;
-				if(register_device(uuid)){
-					cout << "Registered new device: " << uuid << endl;
-				}
 			}catch(const exception &e){
 				cout << "[JSON ERROR] " << e.what() << endl;
 			}
