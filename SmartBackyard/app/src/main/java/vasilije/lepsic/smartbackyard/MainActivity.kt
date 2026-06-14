@@ -2,6 +2,7 @@ package vasilije.lepsic.smartbackyard
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -14,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
 import org.eclipse.paho.client.mqttv3.MqttCallback
 import org.eclipse.paho.client.mqttv3.MqttException
@@ -37,8 +39,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var menuItemLogs: TextView // PROMENJENO: Umesto drone
     private lateinit var menuItemSettings: TextView
 
-    private val rowRegexSensor = Regex("""garden/row(10|[1-9])/sensor""")
-    private val rowRegexActuator = Regex("""garden/row(10|[1-9])/actuator""")
+    private val rowSensorRegex = Regex("""uuid:(10|[1-9])::row_sensor""")
+    private val rowActuatorRegex = Regex("""uuid:(10|[1-9])::row_actuator""")
+    private val rowRegex = Regex("""row(10|[1-9])""")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -149,45 +152,75 @@ class MainActivity : AppCompatActivity() {
                 // basta/red{id}/senzor/vlaga             → azurirajVlaguZemljistaNaKartici(redId, Int)
                 // basta/red{id}/aktuator/ventil/status   → ažurira tvStatus na kartici
 
-                val sensorMatch = rowRegexSensor.matchEntire(topic)
-                val actuatorMatch = rowRegexActuator.matchEntire(topic)
+                val json = MQTTFactory.parseGetMessage(message.payload.contentToString())
+                if (json == null) {
+                    Log.d("MQTT", "GET callback failed")
+                    return
+                }
 
-                if (topic == "garden/global/actuator/roof/status") {
-                    /*btnRoofAction.isEnabled = true
-                    isRoofOpened = (message.toString().trim() == "OPEN")
-                    azurirajUIKrova(isRoofOpened)*/
+                if (json.uuid == "uuid:1::roof_actuator") {
+                    val state = json.service["State"] as String
                     lifecycleScope.launch {
-                        db.globalStatusDao().setRoofStatus(message.toString().trim())
+                        db.globalStatusDao().setRoofStatus(state)
+                        addLog(AppDatabase.getInstance(this@MainActivity), "KROV", state)
                     }
-                } else if (topic == "garden/global/sensor/luminosity") {
-                    //azurirajUIZaSunce(Integer.parseInt(message.toString()))
+
+                    return
+                }
+
+                if (json.uuid == "uuid:1::light_sensor") {
+                    val state = json.service["Luminosity"] as Int
                     lifecycleScope.launch {
-                        db.globalStatusDao().setLuminosity(Integer.parseInt(message.toString()))
+                        db.globalStatusDao().setLuminosity(state)
+                        addLog(AppDatabase.getInstance(this@MainActivity), "JACINA SVETLOSTI", state.toString())
                     }
-                } else if (topic == "garden/global/sensor/humidity") {
-                    //azurirajGlobalnaVlaznostVazduha(Integer.parseInt(message.toString()))
+
+                    return
+                }
+
+                if (json.uuid == "uuid:1::temperature_sensor") {
+                    val state = json.service["Temperature"] as Int
                     lifecycleScope.launch {
-                        db.globalStatusDao().setHumidity(Integer.parseInt(message.toString()))
+                        db.globalStatusDao().setAirTemperature(state)
+                        addLog(AppDatabase.getInstance(this@MainActivity), "TEMPERATURA VAZDUHA", state.toString())
                     }
-                } else if (topic == "garden/global/sensor/reservoir") {
-                    //azurirajNivoVode(Integer.parseInt(message.toString()))
+
+                    return
+                }
+
+                // TODO
+                if (json.uuid == "WATER_LEVEL") {
+                    val state = json.service["WaterLevel"] as Int
                     lifecycleScope.launch {
-                        db.globalStatusDao().setWaterLevel(Integer.parseInt(message.toString()))
+                        db.globalStatusDao().setWaterLevel(state)
+                        addLog(AppDatabase.getInstance(this@MainActivity), "NIVO VODE", state.toString())
                     }
-                } else if (sensorMatch != null) {
-                    val rowNumber = sensorMatch.groupValues[1].toInt()
-                    //azurirajVlaguZemljistaNaKartici(rowNumber, Integer.parseInt(message.toString()))
+                }
+
+                val sensorMatch = rowSensorRegex.matchEntire(json.uuid)
+                if (sensorMatch != null) {
+                    val rowMatch = rowRegex.matchEntire(json.group) ?: return
+                    val state = json.service["Humidity"] as Int
+
                     lifecycleScope.launch {
-                        db.backyardDao()
-                            .setRedMoisture(rowNumber, Integer.parseInt(message.toString().trim()))
+                        db.backyardDao().setRedMoisture(rowMatch.groupValues[1].toInt(), state)
+                        addLog(AppDatabase.getInstance(this@MainActivity), "SENZOR", state.toString())
                     }
-                } else if (actuatorMatch != null) {
-                    val rowNumber = actuatorMatch.groupValues[1].toInt()
+
+                    return
+                }
+
+                val actuatorMatch = rowActuatorRegex.matchEntire(json.uuid)
+                if (actuatorMatch != null) {
+                    val rowMatch = rowRegex.matchEntire(json.group) ?: return
+                    val state = json.service["State"] as String
+
                     lifecycleScope.launch {
-                        db.backyardDao()
-                            .setRedStatus(rowNumber, message.toString().trim() == "OPEN")
+                        db.backyardDao().setRedStatus(rowMatch.groupValues[1].toInt(), state == "OPEN")
+                        addLog(AppDatabase.getInstance(this@MainActivity), "VENTIL", state)
                     }
-                    //azurirajStatusDugmetaNaKartici(rowNumber, Integer.parseInt(message.toString()) as Boolean)
+
+                    return
                 }
 
                 ZonesActivityInstanceHolder.getZonesActivity()?.updateUI()
@@ -202,9 +235,22 @@ class MainActivity : AppCompatActivity() {
     private fun mqttConnectionTest() {
         try {
             MQTTHandler.setClientId("SampleClient")
+            var lastAddress = MQTTHandler.grabSavedIp(this)
             lifecycleScope.launch(Dispatchers.IO) {
                 while (true) {
-                    MQTTHandler.setIpAddress(MQTTHandler.grabSavedIp(this@MainActivity))
+                    val addr = MQTTHandler.grabSavedIp(this@MainActivity)
+                    if (addr != lastAddress) {
+                        MQTTHandler.disconnect()
+                        lastAddress = addr
+                        continue
+                    }
+                    MQTTHandler.setIpAddress(lastAddress)
+                    withContext(Dispatchers.Main) {
+                        tvConnectionStatus.text = getString(if (MQTTHandler.isConnected())
+                            R.string.status_local_active else R.string.status_local_inactive)
+                        tvConnectionStatus.setTextColor(getColor(if (MQTTHandler.isConnected())
+                            R.color.connection_green else R.color.connection_red))
+                    }
                     if (!MQTTHandler.isConnected()) {
                         MQTTHandler.connect()
                         continue

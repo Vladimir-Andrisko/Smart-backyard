@@ -78,7 +78,7 @@ class ZonesActivity : AppCompatActivity() {
         val db = AppDatabase.getInstance(this)
         lifecycleScope.launch {
             withContext(Dispatchers.Main) {
-                azurirajUIKrova(db.globalStatusDao().getRoofStatus() == "OPEN")
+                azurirajUIKrova(db.globalStatusDao().getRoofStatus() == "OPENED")
                 azurirajNivoVode(db.globalStatusDao().getWaterLevel())
                 azurirajUIZaSunce(db.globalStatusDao().getLuminosity())
                 azurirajUITemperatureVazduha(db.globalStatusDao().getAirTemperature())
@@ -257,7 +257,6 @@ class ZonesActivity : AppCompatActivity() {
 
         // Dugme za ručno zalivanje - toggle OPEN/CLOSE
         var zalivanjAktivno = false
-        val topik = "garden/row${red.redId}/actuator/valve"
 
         val btnZalij = Button(this).apply {
             text = "ZALIJ"
@@ -274,7 +273,8 @@ class ZonesActivity : AppCompatActivity() {
                 zalivanjAktivno = !zalivanjAktivno
 
                 if (zalivanjAktivno) {
-                    MQTTHandler.publish(topik, MQTTFactory.createMessage("OPEN", MQTTHandler.valveQOS))
+                    MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetMessage(
+                        "uuid:${red.redId}::row_actuator", "row${red.redId}", "State", "OPEN", MQTTHandler.valveQOS))
                     lifecycleScope.launch {
                         addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", "OPEN")
                     }
@@ -283,7 +283,8 @@ class ZonesActivity : AppCompatActivity() {
                     text = "PRESTANI"
                     setBackgroundColor(Color.parseColor("#E74C3C"))
                 } else {
-                    MQTTHandler.publish(topik, MQTTFactory.createMessage("CLOSE", MQTTHandler.valveQOS))
+                    MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetMessage(
+                        "uuid:${red.redId}::row_actuator", "global", "State", "CLOSE", MQTTHandler.valveQOS))
                     lifecycleScope.launch {
                         addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", "CLOSE")
                     }
@@ -363,15 +364,16 @@ class ZonesActivity : AppCompatActivity() {
     //}
 
     private fun posaljiKrovuMqttKomandu() {
-        val topik = "garden/global/actuator/roof"
+        /*val topik = "garden/global/actuator/roof"
         val payload = if (!isRoofOpened) "OPEN" else "CLOSE"
-        MQTTHandler.publish(topik, MQTTFactory.createMessage(payload, MQTTHandler.roofQOS))
+        MQTTHandler.publish(topik,
+            MQTTFactory.createMessage(payload, MQTTHandler.roofQOS))
         val db = AppDatabase.getInstance(this)
         lifecycleScope.launch {
             addLog(db,"ROOF", payload)
         }
         btnRoofAction.text = if (!isRoofOpened) "Otvaranje..." else "Zatvaranje..."
-        btnRoofAction.isEnabled = false
+        btnRoofAction.isEnabled = false*/
         /*lifecycleScope.launch {
             withContext(Dispatchers.Main) {
                 btnRoofAction.setBackgroundColor(Color.parseColor("#D3D3D3"))
@@ -383,6 +385,16 @@ class ZonesActivity : AppCompatActivity() {
                 azurirajUIKrova(isRoofOpened)
             }
         }*/
+
+        val value = if (!isRoofOpened) "OPEN" else "CLOSE"
+        MQTTHandler.publish(MQTTHandler.publishTopic,
+            MQTTFactory.createSetMessage("uuid:1::roof_actuator", "global", "Position", value, MQTTHandler.roofQOS))
+        val db = AppDatabase.getInstance(this)
+        lifecycleScope.launch {
+            addLog(db, "ROOF", value)
+        }
+        btnRoofAction.text = if (!isRoofOpened) "Otvaranje..." else "Zatvaranje..."
+        btnRoofAction.isEnabled = false
     }
 
     private fun azurirajUIZaSunce(procenat: Int) {
