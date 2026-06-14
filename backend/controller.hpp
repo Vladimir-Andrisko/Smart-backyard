@@ -20,6 +20,7 @@ static constexpr const char* TEMPERATURE_SENSOR_TOPIC = "garden/global/sensor/te
 static constexpr const char* ROOF_ACTUATOR_TOPIC_SUB = "garden/global/actuator/roof_actuator/subscriber";
 static constexpr const char* ROOF_ACTUATOR_TOPIC_PUB = "garden/global/actuator/roof_actuator/publisher";
 static constexpr const char* LIGHT_SENSOR_TOPIC = "garden/global/sensor/light_sensor";
+static constexpr const char* ROW1_SENSOR_TOPIC = "garden/row1/sensor/row_sensor";
 
 enum DeviceState{ON, OFF, UNREACHABLE};
 

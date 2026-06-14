@@ -44,3 +44,7 @@ Run the script:
 ```
 ./run.sh
 ```
+If you have ip address binding problems you can kill all smart_backyard proccesses:
+```
+./destroy.sh
+```

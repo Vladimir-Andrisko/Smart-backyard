@@ -31,7 +31,7 @@ SSDPDevice::SSDPDevice(const std::string& location, int qos)
 
         std::ifstream file(location);
         if(!file.is_open()){
-            throw std::runtime_error("Cannot open file");
+            throw std::runtime_error("[SSDP] Cannot open file");
         }
 
         json data = json::parse(file);
@@ -42,7 +42,7 @@ SSDPDevice::SSDPDevice(const std::string& location, int qos)
         init(uuid, deviceType, location, age);
 
     }catch(const std::exception &e){
-        throw std::runtime_error(std::string("Can't initialize device: ") + e.what());
+        throw std::runtime_error(std::string("[SSDP] Can't initialize device: ") + e.what());
     }
 }
 
@@ -53,20 +53,20 @@ SSDPDevice::~SSDPDevice()
 
 void SSDPDevice::setupSocket(){
     if((socket_fd_ = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
-        throw std::runtime_error("SSDP: socket() failed!\n");
+        throw std::runtime_error("[SSDP] socket() failed!\n");
     }
 
     int yes = 1;
     if (setsockopt(socket_fd_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
         close(socket_fd_);
-        throw std::runtime_error("SSDP: set socket reuse address failed!\n");
+        throw std::runtime_error("[SSDP] set socket reuse address failed!\n");
     }
 
     struct timeval tv{};
     tv.tv_sec = SOCKET_TIMEOUT; // Timeout for recv
     if (setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
         close(socket_fd_);
-        throw std::runtime_error("SSDP: set socket timeout failed!\n");
+        throw std::runtime_error("[SSDP] set socket timeout failed!\n");
     }
 
     sockaddr_in addr{};
@@ -76,7 +76,7 @@ void SSDPDevice::setupSocket(){
 
     if (bind(socket_fd_, (sockaddr*)&addr, sizeof(addr)) < 0) {
         close(socket_fd_);
-        throw std::runtime_error("SSDP: bind() failed!\n");
+        throw std::runtime_error("[SSDP] bind() failed!\n");
     }
 
     ip_mreq mreq{};
@@ -85,7 +85,7 @@ void SSDPDevice::setupSocket(){
 
     if (setsockopt(socket_fd_, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
         close(socket_fd_);
-        throw std::runtime_error("SSDP: IP_ADD_MEMBERSHIP failed!\n");
+        throw std::runtime_error("[SSDP] IP_ADD_MEMBERSHIP failed!\n");
     }
 
     multicastAddr.sin_family = AF_INET;

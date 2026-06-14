@@ -36,12 +36,18 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	}else if(topic == LIGHT_SENSOR_TOPIC){
 		device_state[data["uuid"]]["Intensity"] = data["Service"]["Intensity"].get<int>();
 	}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
-		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<int>();
+		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<string>();
+	}else if(topic.find("/sensor/row_sensor") != std::string::npos){
+		device_state[data["uuid"]]["Humidity"] = data["Service"]["Humidity"].get<int>();
+	}else if(topic.find("/actuator/row_actuator") != std::string::npos){
+		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<string>();
 	}
 
+	cout << "====================================\n";
 	for(auto &pair : device_state){
 		cout << "DEVICE STATES: " << pair.second << endl;
 	}
+	cout << "====================================\n\n";
 }
 
 void on_connect(struct mosquitto *mosq, void *obj, int rc) {
@@ -51,6 +57,8 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 	}
 	mosquitto_subscribe(mosq, NULL, "garden/global/sensor/#", 0);
 	mosquitto_subscribe(mosq, NULL, "garden/global/actuator/#", 0);
+	mosquitto_subscribe(mosq, NULL, "garden/+/sensor/row_sensor", 0);
+	mosquitto_subscribe(mosq, NULL, "garden/+/actuator/row_actuator", 0);
 	mosquitto_message_callback_set(mosq, on_message);
 }
 

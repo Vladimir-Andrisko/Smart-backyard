@@ -1,0 +1,12 @@
+{
+    "uuid": "4::row_sensor",
+    "group": "row1",
+    "topic": "garden/row1/sensor/row_sensor",
+    "max_age": 60,
+
+    "Service" : {
+        "State" : "ON/OFF/UNREACHABLE",
+        "Humidity" : "0~100|r",
+        "Unit": "%"
+    }
+}

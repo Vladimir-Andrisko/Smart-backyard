@@ -3,3 +3,4 @@ build/
 bin/
 *.sh
 !run.sh
+!destroy.sh
