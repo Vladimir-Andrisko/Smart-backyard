@@ -7,6 +7,7 @@ unordered_map<string, json> device_state;
 
 void handleSignal(int){
     if (ssdp != nullptr){
+		ssdp->stop();
 		delete ssdp;
         ssdp = nullptr;
     }
@@ -37,7 +38,6 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		device_state[data["uuid"]]["Intensity"] = data["Service"]["Intensity"].get<int>();
 	}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
 		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<string>();
-		cout << "ROOF: " << device_state[data["uuid"]] << endl;
 	}else if(topic.find("/sensor/row_sensor") != std::string::npos){
 		device_state[data["uuid"]]["Humidity"] = data["Service"]["Humidity"].get<int>();
 	}else if(topic.find("/actuator/row_actuator") != std::string::npos){
@@ -99,8 +99,8 @@ int main(){
 	while((c = getchar()) != 'q'){
 		if(c == 'r'){
 			if(roof_msg == "OPEN"){
-				msg = generateActuatorMsg("uuid:1:roof_actuator", "CLOSE");
-				roof_msg = "CLOSE";
+				msg = generateActuatorMsg("uuid:1:roof_actuator", "CLOSED");
+				roof_msg = "CLOSED";
 			}
 			else{
 				roof_msg = "OPEN";

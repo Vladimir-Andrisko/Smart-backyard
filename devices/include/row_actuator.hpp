@@ -1,5 +1,5 @@
-#ifndef ROOF_ACTUATOR_HPP
-#define ROOF_ACTUATOR_HPP
+#ifndef ROW_ACTUATOR_HPP
+#define ROW_ACTUATOR_HPP
 
 #include <iostream>
 #include <csignal>

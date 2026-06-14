@@ -7,6 +7,6 @@
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",
-        "Position": "OPEN/CLOSE"
+        "Position": "OPEN/CLOSED"
     }
 }

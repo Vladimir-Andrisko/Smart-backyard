@@ -92,3 +92,13 @@ target_link_libraries(roof_actuator
     ssdp
     ${MOSQUITTO_LIBRARIES}
 )
+
+add_executable(row_actuator devices/src/row_actuator.cpp)
+target_include_directories(row_actuator PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/devices/include
+    ${MOSQUITTO_INCLUDE_DIRS}
+)
+target_link_libraries(row_actuator
+    ssdp
+    ${MOSQUITTO_LIBRARIES}
+)

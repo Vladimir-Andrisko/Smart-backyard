@@ -1,13 +1,12 @@
 {
-    "uuid": "3::row_sensor",
+    "uuid": "3::row_actuator",
     "group": "row3",
-    "topic": "garden/row3/sensor/row_sensor",
+    "topic": "garden/row3/actuator/row_actuator",
     "max_age": 60,
     "keepAlive": 10,
 
     "Service" : {
         "State" : "ON/OFF/UNREACHABLE",
-        "Humidity" : "0~100|r",
-        "Unit": "%"
+        "Position" : "OPEN/CLOSED"
     }
 }

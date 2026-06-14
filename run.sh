@@ -21,3 +21,13 @@ sleep $SLEEP
 gnome-terminal -- ./bin/row_sensor config/sensor/row_sensor/row5_sensor_desc.json $TAG &
 sleep $SLEEP
 gnome-terminal -- ./bin/roof_actuator config/actuator/roof_actuator_desc.json $TAG &
+sleep $SLEEP
+gnome-terminal -- ./bin/row_actuator config/actuator/row_actuator/row1_actuator_desc.json $TAG &
+sleep $SLEEP
+gnome-terminal -- ./bin/row_actuator config/actuator/row_actuator/row2_actuator_desc.json $TAG &
+sleep $SLEEP
+gnome-terminal -- ./bin/row_actuator config/actuator/row_actuator/row3_actuator_desc.json $TAG &
+sleep $SLEEP
+gnome-terminal -- ./bin/row_actuator config/actuator/row_actuator/row4_actuator_desc.json $TAG &
+sleep $SLEEP
+gnome-terminal -- ./bin/row_actuator config/actuator/row_actuator/row5_actuator_desc.json $TAG &
