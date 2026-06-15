@@ -265,14 +265,6 @@ class ZonesActivity : AppCompatActivity() {
                     }
                 }
 
-                /*val match_actuator = rowActuatorRegex.matchEntire(json.uuid)
-                if (match_actuator != null) {
-                    val row = match_actuator.groupValues[1].toInt()
-                    val position = json.service["Position"]
-                    lifecycleScope.launch {
-                        db.backyardDao().setRedStatus(row, position == "OPEN")
-                    }
-                }*/
                 val match_actuator = rowActuatorRegex.matchEntire(json.uuid)
                 if (match_actuator != null) {
                     val row = match_actuator.groupValues[1].toInt()
