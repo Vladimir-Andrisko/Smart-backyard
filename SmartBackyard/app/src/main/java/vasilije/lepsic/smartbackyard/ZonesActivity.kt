@@ -107,7 +107,7 @@ class ZonesActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
 
                     azurirajUIKrova(roofStatus == "OPEN")
-                    azurirajNivoVode(db.globalStatusDao().getWaterLevel())
+                    //azurirajNivoVode(db.globalStatusDao().getWaterLevel())
                     azurirajUIZaSunce(db.globalStatusDao().getLuminosity())
                     azurirajUITemperatureVazduha(db.globalStatusDao().getAirTemperature())
                     azurirajGlobalnaVlaznostVazduha(db.globalStatusDao().getHumidity())
@@ -151,10 +151,6 @@ class ZonesActivity : AppCompatActivity() {
         btnRoofAction = findViewById(R.id.btnRoofAction)
 
         btnBack.setOnClickListener { finish() }
-
-        // Nivo vode: default 0% dok ne stigne MQTT
-        pbWaterLevel.progress = 0
-        azurirajNivoVode(0)
 
         // Globalna vlažnost vazduha: default 0% dok ne stigne MQTT
         azurirajGlobalnaVlaznostVazduha(0)
