@@ -17,9 +17,7 @@ object MQTTHandler {
             connect()
 
         //Keep alive signal
-        val msg = MQTTFactory.createMessage(uuid, keepAliveQOS)
-        msg.qos = keepAliveQOS
-        publish(publishTopic, msg)
+        publish(aliveTopic, MQTTFactory.createAliveMessage(uuid, keepAliveQOS))
     }
 
     fun connect() : Boolean {
@@ -47,6 +45,7 @@ object MQTTHandler {
             return
 
         mqttClient?.disconnect()
+        mqttClient?.close()
         mqttClient = null
     }
 
@@ -114,5 +113,6 @@ object MQTTHandler {
     const val roofQOS = 1
     const val publishTopic = "garden/app/controller"
     const val subscribeTopic = "garden/app/app"
+    const val aliveTopic = "garden/app/alive"
     const val uuid = "uuid:1::app"
 }

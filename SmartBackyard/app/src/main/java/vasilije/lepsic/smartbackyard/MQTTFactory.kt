@@ -33,15 +33,26 @@ object MQTTFactory {
 
     // GET komanda
     fun createGetMessage(
-        jsonType: String, // "state" ili "info"
-        device: String,   // "*" ili devId
+        uuid: String,   // "*" ili devId
+        group: String,
         qos: Int
     ): MqttMessage {
         val json = JSONObject().apply {
             put("command_type", "GET")
-            put("json", jsonType)
-            put("device", device)
+            put("group", group)
+            put("uuid", uuid)
         }
+        return createMessage(json.toString(), qos)
+    }
+
+    fun createAliveMessage(
+        uuid: String,
+        qos: Int
+    ): MqttMessage {
+        val json = JSONObject().apply {
+            put("uuid", uuid)
+        }
+
         return createMessage(json.toString(), qos)
     }
 
@@ -67,7 +78,6 @@ object MQTTFactory {
         return try {
             val json = JSONObject(payload)
             val service = json.getJSONObject("Service")
-            if (json.optString("command_type") != "GET") return null
             GetCommand(
                 uuid = json.getString("uuid"),
                 group = json.getString("group"),

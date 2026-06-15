@@ -39,10 +39,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var menuItemLogs: TextView // PROMENJENO: Umesto drone
     private lateinit var menuItemSettings: TextView
 
-    private val rowSensorRegex = Regex("""uuid:(10|[1-9])::row_sensor""")
-    private val rowActuatorRegex = Regex("""uuid:(10|[1-9])::row_actuator""")
-    private val rowRegex = Regex("""row(10|[1-9])""")
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -135,109 +131,18 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             if (!db.globalStatusDao().hasData())
                 db.globalStatusDao().initializeColumn()
+
+            db.globalStatusDao().setRoofStatus("UNINITIALIZED")
         }
-        MQTTHandler.setCallback(object : MqttCallback {
-            override fun connectionLost(cause: Throwable?) {
-
-            }
-
-            override fun messageArrived(topic: String?, message: MqttMessage?) {
-                if (topic == null || message == null)
-                    return
-
-                // basta/global/senzor/kolicinaSvetlosti  → azurirajUIZaSunce(Int)
-                // basta/global/aktuator/krov/status      → azurirajUIKrova(Boolean)
-                // basta/global/senzor/rezervoar          → azurirajNivoVode(Int)
-                // basta/global/senzor/vlaznostVazduha    → azurirajGlobalnaVlaznostVazduha(Int)
-                // basta/red{id}/senzor/vlaga             → azurirajVlaguZemljistaNaKartici(redId, Int)
-                // basta/red{id}/aktuator/ventil/status   → ažurira tvStatus na kartici
-
-                val json = MQTTFactory.parseGetMessage(message.payload.contentToString())
-                if (json == null) {
-                    Log.d("MQTT", "GET callback failed")
-                    return
-                }
-
-                if (json.uuid == "uuid:1::roof_actuator") {
-                    val state = json.service["State"] as String
-                    lifecycleScope.launch {
-                        db.globalStatusDao().setRoofStatus(state)
-                        addLog(AppDatabase.getInstance(this@MainActivity), "KROV", state)
-                    }
-
-                    return
-                }
-
-                if (json.uuid == "uuid:1::light_sensor") {
-                    val state = json.service["Luminosity"] as Int
-                    lifecycleScope.launch {
-                        db.globalStatusDao().setLuminosity(state)
-                        addLog(AppDatabase.getInstance(this@MainActivity), "JACINA SVETLOSTI", state.toString())
-                    }
-
-                    return
-                }
-
-                if (json.uuid == "uuid:1::temperature_sensor") {
-                    val state = json.service["Temperature"] as Int
-                    lifecycleScope.launch {
-                        db.globalStatusDao().setAirTemperature(state)
-                        addLog(AppDatabase.getInstance(this@MainActivity), "TEMPERATURA VAZDUHA", state.toString())
-                    }
-
-                    return
-                }
-
-                // TODO
-                if (json.uuid == "WATER_LEVEL") {
-                    val state = json.service["WaterLevel"] as Int
-                    lifecycleScope.launch {
-                        db.globalStatusDao().setWaterLevel(state)
-                        addLog(AppDatabase.getInstance(this@MainActivity), "NIVO VODE", state.toString())
-                    }
-                }
-
-                val sensorMatch = rowSensorRegex.matchEntire(json.uuid)
-                if (sensorMatch != null) {
-                    val rowMatch = rowRegex.matchEntire(json.group) ?: return
-                    val state = json.service["Humidity"] as Int
-
-                    lifecycleScope.launch {
-                        db.backyardDao().setRedMoisture(rowMatch.groupValues[1].toInt(), state)
-                        addLog(AppDatabase.getInstance(this@MainActivity), "SENZOR", state.toString())
-                    }
-
-                    return
-                }
-
-                val actuatorMatch = rowActuatorRegex.matchEntire(json.uuid)
-                if (actuatorMatch != null) {
-                    val rowMatch = rowRegex.matchEntire(json.group) ?: return
-                    val state = json.service["State"] as String
-
-                    lifecycleScope.launch {
-                        db.backyardDao().setRedStatus(rowMatch.groupValues[1].toInt(), state == "OPEN")
-                        addLog(AppDatabase.getInstance(this@MainActivity), "VENTIL", state)
-                    }
-
-                    return
-                }
-
-                ZonesActivityInstanceHolder.getZonesActivity()?.updateUI()
-            }
-
-            override fun deliveryComplete(token: IMqttDeliveryToken?) {
-            }
-        })
         mqttConnectionTest()
     }
 
     private fun mqttConnectionTest() {
-        try {
-            MQTTHandler.setClientId("SampleClient")
-            var lastAddress = MQTTHandler.grabSavedIp(this)
-            lifecycleScope.launch(Dispatchers.IO) {
-                while (true) {
+        MQTTHandler.setClientId("SampleClient")
+        var lastAddress = MQTTHandler.grabSavedIp(this)
+        lifecycleScope.launch(Dispatchers.IO) {
+            while (true) {
+                try {
                     val addr = MQTTHandler.grabSavedIp(this@MainActivity)
                     if (addr != lastAddress) {
                         MQTTHandler.disconnect()
@@ -246,20 +151,25 @@ class MainActivity : AppCompatActivity() {
                     }
                     MQTTHandler.setIpAddress(lastAddress)
                     withContext(Dispatchers.Main) {
-                        tvConnectionStatus.text = getString(if (MQTTHandler.isConnected())
-                            R.string.status_local_active else R.string.status_local_inactive)
-                        tvConnectionStatus.setTextColor(getColor(if (MQTTHandler.isConnected())
-                            R.color.connection_green else R.color.connection_red))
+                        tvConnectionStatus.text = getString(
+                            if (MQTTHandler.isConnected())
+                                R.string.status_local_active else R.string.status_local_inactive
+                        )
+                        tvConnectionStatus.setTextColor(
+                            getColor(
+                                if (MQTTHandler.isConnected())
+                                    R.color.connection_green else R.color.connection_red
+                            )
+                        )
                     }
                     if (!MQTTHandler.isConnected()) {
                         MQTTHandler.connect()
                         continue
                     }
                     MQTTHandler.mainLoop()
-                    delay(10000)
-                }
+                } catch (_ : MqttException) {}
+                delay(10000)
             }
-        } catch (_: MqttException) {
         }
     }
 }

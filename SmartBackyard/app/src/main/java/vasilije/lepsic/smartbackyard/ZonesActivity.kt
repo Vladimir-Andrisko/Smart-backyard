@@ -3,27 +3,19 @@ package vasilije.lepsic.smartbackyard
 import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.Gravity
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.TextView
+import android.view.View
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-object ZonesActivityInstanceHolder {
-    private var activity : ZonesActivity? = null
-    fun getZonesActivity() : ZonesActivity? {
-        return activity
-    }
-
-    fun setZonesActivity(activity: ZonesActivity?) {
-        this.activity = activity
-    }
-}
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
+import org.eclipse.paho.client.mqttv3.MqttCallback
+import org.eclipse.paho.client.mqttv3.MqttMessage
 
 class ZonesActivity : AppCompatActivity() {
 
@@ -44,18 +36,14 @@ class ZonesActivity : AppCompatActivity() {
     private var isRoofOpened = false
     private lateinit var tvAirTemperature: TextView
 
+    private val rowSensorRegex = Regex("""uuid:(10|[1-9])::row_sensor""")
+    private val rowActuatorRegex = Regex("""uuid:(10|[1-9])::row_actuator""")
+    private val rowRegex = Regex("""row(10|[1-9])""")
+
+    private val getRequestDelay : Long = 15000
+
     /*private val rowRegexSensor = Regex("""garden/row(10|[1-9])/sensor""")
     private val rowRegexActuator = Regex("""garden/row(10|[1-9])/actuator""")*/
-
-    /*override fun onDestroy() {
-        super.onDestroy()
-        MQTTHandler.clearCallback()
-    }*/
-
-    override fun onDestroy() {
-        super.onDestroy()
-        ZonesActivityInstanceHolder.setZonesActivity(null)
-    }
 
     fun azurirajUITemperatureVazduha(temp: Int) {
         tvAirTemperature.text = getString(R.string.degree_format, temp)
@@ -74,17 +62,33 @@ class ZonesActivity : AppCompatActivity() {
         )
     }
 
-    fun updateUI() {
+    override fun onDestroy() {
+        super.onDestroy()
         val db = AppDatabase.getInstance(this)
         lifecycleScope.launch {
+            db.globalStatusDao().setRoofStatus("UNINITIALIZED")
+        }
+    }
+
+    fun updateUI() {
+        val db = AppDatabase.getInstance(this)
+
+        lifecycleScope.launch {
+            val roofStatus = db.globalStatusDao().getRoofStatus()
+            if (roofStatus == "UNINITIALIZED")
+                btnRoofAction.visibility = View.INVISIBLE
+
             withContext(Dispatchers.Main) {
-                azurirajUIKrova(db.globalStatusDao().getRoofStatus() == "OPENED")
+
+                azurirajUIKrova(roofStatus == "OPEN")
                 azurirajNivoVode(db.globalStatusDao().getWaterLevel())
                 azurirajUIZaSunce(db.globalStatusDao().getLuminosity())
                 azurirajUITemperatureVazduha(db.globalStatusDao().getAirTemperature())
                 azurirajGlobalnaVlaznostVazduha(db.globalStatusDao().getHumidity())
+
                 val redovi = db.backyardDao().getAllRedovi()
                 val redoviStatus = db.backyardDao().getAllRedoviStatus()
+
                 for (i in redovi.indices) {
                     val red = redovi[i]
                     val redStatus = redoviStatus[i]
@@ -98,7 +102,7 @@ class ZonesActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_zones)
-        ZonesActivityInstanceHolder.setZonesActivity(this)
+        //ZonesActivityInstanceHolder.setZonesActivity(this)
 
         baza = AppDatabase.getInstance(this)
         tvAirTemperature = findViewById(R.id.airTemperature)
@@ -129,13 +133,195 @@ class ZonesActivity : AppCompatActivity() {
             tvGlobalTemp.text = "Tip zemljišta: $tipZemljista"
         }
 
+        btnRoofAction.visibility = View.INVISIBLE
+
         btnRoofAction.setOnClickListener {
             posaljiKrovuMqttKomandu()
         }
 
         // Učitaj redove iz baze i napravi kartice
         ucitajIPrivkazujRedove()
-        updateUI()
+
+        val db = AppDatabase.getInstance(this)
+
+        MQTTHandler.setCallback(object : MqttCallback {
+            override fun connectionLost(cause: Throwable?) {
+
+            }
+
+            override fun messageArrived(topic: String?, message: MqttMessage?) {
+                if (topic == null || message == null)
+                    return
+
+                Log.d("MQTTtest", message.toString())
+
+                // basta/global/senzor/kolicinaSvetlosti  → azurirajUIZaSunce(Int)
+                // basta/global/aktuator/krov/status      → azurirajUIKrova(Boolean)
+                // basta/global/senzor/rezervoar          → azurirajNivoVode(Int)
+                // basta/global/senzor/vlaznostVazduha    → AzureWaveGlobalnaVlaznostVazduha(Int)
+                // basta/red{id}/senzor/vlaga             → azurirajVlaguZemljistaNaKartici(redId, Int)
+                // basta/red{id}/aktuator/ventil/status   → ažurira tvStatus na kartici
+
+                val json = MQTTFactory.parseGetMessage(String(message.payload, Charsets.UTF_8))
+                if (json == null) {
+                    Log.d("MQTT", "GET callback failed")
+                    return
+                }
+
+                /*if (json.uuid == "uuid:1::roof_actuator") {
+                    val state = json.service["State"] as String
+                    lifecycleScope.launch {
+                        db.globalStatusDao().setRoofStatus(state)
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "KROV", state)
+                    }
+
+                    return
+                }
+
+                if (json.uuid == "uuid:1::light_sensor") {
+                    val state = json.service["Luminosity"] as Int
+                    lifecycleScope.launch {
+                        db.globalStatusDao().setLuminosity(state)
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "JACINA SVETLOSTI", state.toString())
+                    }
+
+                    return
+                }
+
+                if (json.uuid == "uuid:1::temperature_sensor") {
+                    val state = json.service["Temperature"] as Int
+                    lifecycleScope.launch {
+                        db.globalStatusDao().setAirTemperature(state)
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "TEMPERATURA VAZDUHA", state.toString())
+                    }
+
+                    return
+                }
+
+                // TODO
+                if (json.uuid == "WATER_LEVEL") {
+                    val state = json.service["WaterLevel"] as Int
+                    lifecycleScope.launch {
+                        db.globalStatusDao().setWaterLevel(state)
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "NIVO VODE", state.toString())
+                    }
+                }
+
+                val sensorMatch = rowSensorRegex.matchEntire(json.uuid)
+                if (sensorMatch != null) {
+                    val rowMatch = rowRegex.matchEntire(json.group) ?: return
+                    val state = json.service["Humidity"] as Int
+
+                    lifecycleScope.launch {
+                        db.backyardDao().setRedMoisture(rowMatch.groupValues[1].toInt(), state)
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "SENZOR", state.toString())
+                    }
+
+                    return
+                }
+
+                val actuatorMatch = rowActuatorRegex.matchEntire(json.uuid)
+                if (actuatorMatch != null) {
+                    val rowMatch = rowRegex.matchEntire(json.group) ?: return
+                    val state = json.service["State"] as String
+
+                    lifecycleScope.launch {
+                        db.backyardDao().setRedStatus(rowMatch.groupValues[1].toInt(), state == "OPEN")
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", state)
+                    }
+
+                    return
+                }*/
+
+                val state = json.service["State"]
+                if (state != "ON") {
+                    Toast.makeText(this@ZonesActivity, "device ${json.uuid} is $state", Toast.LENGTH_SHORT).show()
+                    return
+                }
+
+                if (json.uuid == "uuid:1::humidity_sensor") {
+                    try {
+                        val humidity = json.service["Humidity"] as Int
+                        lifecycleScope.launch {
+                            db.globalStatusDao().setHumidity(humidity)
+                        }
+                    }
+                    catch(_ : java.lang.ClassCastException) {}
+                }
+
+                if (json.uuid == "uuid:1::temperature_sensor") {
+                    try {
+                        val temperature = json.service["Temperature"] as Int
+                        lifecycleScope.launch {
+                            db.globalStatusDao()
+                                .setAirTemperature(temperature)
+                        }
+                    }
+                    catch(_ : java.lang.ClassCastException) {}
+                }
+
+                if (json.uuid == "uuid:1::light_sensor") {
+                    try {
+                        val luminosity = json.service["Intensity"] as Int
+                        lifecycleScope.launch {
+                            db.globalStatusDao().setLuminosity(luminosity)
+                        }
+                    }
+                    catch(_ : java.lang.ClassCastException) {}
+                }
+
+                if (json.uuid == "uuid:1::roof_actuator") {
+                    try {
+                        lifecycleScope.launch {
+                            val str = json.service["Position"] as String
+                            isRoofOpened = str == "OPEN"
+
+                            db.globalStatusDao().setRoofStatus(str)
+
+                            withContext(Dispatchers.Main) {
+                                btnRoofAction.visibility = View.VISIBLE
+                            }
+                        }
+                    }
+                    catch(_ : java.lang.ClassCastException) {}
+                }
+
+                updateUI()
+            }
+
+            override fun deliveryComplete(token: IMqttDeliveryToken?) {
+            }
+        })
+
+        lifecycleScope.launch {
+            while(true) {
+                delay(getRequestDelay)
+                if (isDestroyed || isFinishing)
+                    break
+                /*MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetMessage(
+                "uuid:${red.redId}::row_actuator", "row${red.redId}", "State", "OPEN", MQTTHandler.valveQOS))*/
+                MQTTHandler.publish(
+                    MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
+                        "uuid:1::roof_actuator", "global", MQTTHandler.roofQOS
+                    )
+                )
+                MQTTHandler.publish(
+                    MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
+                        "uuid:1::humidity_sensor", "global", MQTTHandler.globalSensorQOS
+                    )
+                )
+                MQTTHandler.publish(
+                    MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
+                        "uuid:1::temperature_sensor", "global", MQTTHandler.globalSensorQOS
+                    )
+                )
+                MQTTHandler.publish(
+                    MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
+                        "uuid:1::light_sensor", "global", MQTTHandler.globalSensorQOS
+                    )
+                )
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -284,9 +470,9 @@ class ZonesActivity : AppCompatActivity() {
                     setBackgroundColor(Color.parseColor("#E74C3C"))
                 } else {
                     MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetMessage(
-                        "uuid:${red.redId}::row_actuator", "global", "State", "CLOSE", MQTTHandler.valveQOS))
+                        "uuid:${red.redId}::row_actuator", "global", "State", "CLOSED", MQTTHandler.valveQOS))
                     lifecycleScope.launch {
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", "CLOSE")
+                        addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", "CLOSED")
                     }
                     tvStatus.text = "● ZATVOREN"
                     tvStatus.setTextColor(Color.parseColor("#E74C3C"))
@@ -365,7 +551,7 @@ class ZonesActivity : AppCompatActivity() {
 
     private fun posaljiKrovuMqttKomandu() {
         /*val topik = "garden/global/actuator/roof"
-        val payload = if (!isRoofOpened) "OPEN" else "CLOSE"
+        val payload = if (!isRoofOpened) "OPEN" else "CLOSED"
         MQTTHandler.publish(topik,
             MQTTFactory.createMessage(payload, MQTTHandler.roofQOS))
         val db = AppDatabase.getInstance(this)
@@ -386,7 +572,7 @@ class ZonesActivity : AppCompatActivity() {
             }
         }*/
 
-        val value = if (!isRoofOpened) "OPEN" else "CLOSE"
+        val value = if (!isRoofOpened) "OPEN" else "CLOSED"
         MQTTHandler.publish(MQTTHandler.publishTopic,
             MQTTFactory.createSetMessage("uuid:1::roof_actuator", "global", "Position", value, MQTTHandler.roofQOS))
         val db = AppDatabase.getInstance(this)
@@ -395,6 +581,7 @@ class ZonesActivity : AppCompatActivity() {
         }
         btnRoofAction.text = if (!isRoofOpened) "Otvaranje..." else "Zatvaranje..."
         btnRoofAction.isEnabled = false
+        btnRoofAction.alpha = 0.5F
     }
 
     private fun azurirajUIZaSunce(procenat: Int) {
@@ -409,6 +596,7 @@ class ZonesActivity : AppCompatActivity() {
     private fun azurirajUIKrova(otvoren: Boolean) {
         isRoofOpened = otvoren
         btnRoofAction.isEnabled = true
+        btnRoofAction.alpha = 1.0F
         if (isRoofOpened) {
             tvRoofStatus.text = "OTVOREN"
             tvRoofStatus.setTextColor(Color.parseColor("#2ECC71"))
