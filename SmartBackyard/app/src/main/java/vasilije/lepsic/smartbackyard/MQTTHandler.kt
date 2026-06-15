@@ -111,6 +111,7 @@ object MQTTHandler {
     const val sensorQOS = 1
     const val globalSensorQOS = 0
     const val roofQOS = 1
+    const val configQOS = 2
     const val publishTopic = "garden/app/controller"
     const val subscribeTopic = "garden/app/app"
     const val aliveTopic = "garden/app/alive"

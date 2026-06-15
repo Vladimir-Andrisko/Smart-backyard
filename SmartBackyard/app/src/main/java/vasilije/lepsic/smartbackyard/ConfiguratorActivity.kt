@@ -9,6 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -90,6 +91,11 @@ class ConfiguratorActivity : AppCompatActivity() {
         }
 
         btnPotvrdi.setOnClickListener {
+            if (!MQTTHandler.isConnected()) {
+                Toast.makeText(this, "Niste povezani, pokusajte ponovo", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             val odabranoZemljiste = if (spinnerZemljiste.visibility == View.VISIBLE) {
                 spinnerZemljiste.selectedItem?.toString()
             } else {
@@ -101,8 +107,28 @@ class ConfiguratorActivity : AppCompatActivity() {
             }
 
             lifecycleScope.launch(Dispatchers.IO) {
+                val lst : MutableList<RowCommandEntry> = mutableListOf()
+                baza.backyardDao().deleteAllRedoviStatus()
                 baza.backyardDao().deleteAllRedovi()
-                tempRedovi.forEach { baza.backyardDao().insertRedBaste(it) }
+                tempRedovi.forEach {
+                    if (it.kulturaIdRef != null) {
+                        val kultura = baza.backyardDao().getKulturaById(it.kulturaIdRef)
+                        if (kultura != null) {
+                            val id = baza.backyardDao().insertRedBaste(it)
+                            baza.backyardDao().insertRedStatus(RedBasteStatusEntity(0, id.toInt(), false, 5))
+                            lst.add(
+                                RowCommandEntry(
+                                    kultura.moistureMax,
+                                    kultura.moistureMin,
+                                    kultura.maxWateringDuration,
+                                    kultura.restingPeriod
+                                )
+                            )
+                        }
+                    }
+                }
+
+                MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetRowsMessage(lst))
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@ConfiguratorActivity, "Redovi sačuvani!", Toast.LENGTH_SHORT).show()

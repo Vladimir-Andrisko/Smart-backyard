@@ -32,18 +32,34 @@ class ZonesActivity : AppCompatActivity() {
     private lateinit var btnRoofAction: Button
 
     private lateinit var baza: AppDatabase
-    private lateinit var redKontrola : LinearLayout
     private var isRoofOpened = false
     private lateinit var tvAirTemperature: TextView
 
+    private val getRequestDelay : Long = 4000
     private val rowSensorRegex = Regex("""uuid:(10|[1-9])::row_sensor""")
     private val rowActuatorRegex = Regex("""uuid:(10|[1-9])::row_actuator""")
-    private val rowRegex = Regex("""row(10|[1-9])""")
 
-    private val getRequestDelay : Long = 15000
+    @Volatile private var isUpdatingUI = false
 
-    /*private val rowRegexSensor = Regex("""garden/row(10|[1-9])/sensor""")
-    private val rowRegexActuator = Regex("""garden/row(10|[1-9])/actuator""")*/
+    // -------------------------------------------------------------------------
+    // Mapa kartica po redId-u, da ne moramo da rušimo i pravimo nove view-ove
+    // svaki put kada se osvežava UI.
+    // -------------------------------------------------------------------------
+    data class RedKarticaViews(
+        val root: LinearLayout,
+        val tvVlaga: TextView,
+        val tvStatus: TextView,
+        val btnZalij: Button
+    )
+
+    private val karticeMap = mutableMapOf<Int, RedKarticaViews>()
+
+    private fun setRowButtonEnabled(redId: Int, enabled: Boolean) {
+        karticeMap[redId]?.btnZalij?.apply {
+            isEnabled = enabled
+            alpha = if (enabled) 1f else 0.5f
+        }
+    }
 
     fun azurirajUITemperatureVazduha(temp: Int) {
         tvAirTemperature.text = getString(R.string.degree_format, temp)
@@ -71,30 +87,47 @@ class ZonesActivity : AppCompatActivity() {
     }
 
     fun updateUI() {
+        if (isUpdatingUI) return
+        isUpdatingUI = true
+
         val db = AppDatabase.getInstance(this)
 
         lifecycleScope.launch {
-            val roofStatus = db.globalStatusDao().getRoofStatus()
-            if (roofStatus == "UNINITIALIZED")
-                btnRoofAction.visibility = View.INVISIBLE
+            try {
+                ucitajIPrikazujRedove()
 
-            withContext(Dispatchers.Main) {
+                val roofStatus = db.globalStatusDao().getRoofStatus()
 
-                azurirajUIKrova(roofStatus == "OPEN")
-                azurirajNivoVode(db.globalStatusDao().getWaterLevel())
-                azurirajUIZaSunce(db.globalStatusDao().getLuminosity())
-                azurirajUITemperatureVazduha(db.globalStatusDao().getAirTemperature())
-                azurirajGlobalnaVlaznostVazduha(db.globalStatusDao().getHumidity())
-
-                val redovi = db.backyardDao().getAllRedovi()
-                val redoviStatus = db.backyardDao().getAllRedoviStatus()
-
-                for (i in redovi.indices) {
-                    val red = redovi[i]
-                    val redStatus = redoviStatus[i]
-                    azurirajStatusDugmetaNaKartici(red.redId, redStatus.open)
-                    azurirajVlaguZemljistaNaKartici(red.redId, redStatus.soilMoisture)
+                if (roofStatus == "UNINITIALIZED") {
+                    withContext(Dispatchers.Main) {
+                        btnRoofAction.visibility = View.INVISIBLE
+                    }
                 }
+
+                withContext(Dispatchers.Main) {
+
+                    azurirajUIKrova(roofStatus == "OPEN")
+                    azurirajNivoVode(db.globalStatusDao().getWaterLevel())
+                    azurirajUIZaSunce(db.globalStatusDao().getLuminosity())
+                    azurirajUITemperatureVazduha(db.globalStatusDao().getAirTemperature())
+                    azurirajGlobalnaVlaznostVazduha(db.globalStatusDao().getHumidity())
+
+                    val redovi = db.backyardDao().getAllRedovi()
+                    val redoviStatus = db.backyardDao().getAllRedoviStatus()
+
+                    if (redovi.isNotEmpty() && redoviStatus.isNotEmpty()) {
+                        for (i in redovi.indices) {
+                            val red = redovi[i]
+                            val redStatus = redoviStatus[i]
+
+                            azurirajStatusDugmetaNaKartici(red.redId, redStatus.open)
+                            azurirajVlaguZemljistaNaKartici(red.redId, redStatus.soilMoisture)
+                        }
+                    }
+                }
+
+            } finally {
+                isUpdatingUI = false
             }
         }
     }
@@ -140,7 +173,7 @@ class ZonesActivity : AppCompatActivity() {
         }
 
         // Učitaj redove iz baze i napravi kartice
-        ucitajIPrivkazujRedove()
+        //ucitajIPrikazujRedove()
 
         val db = AppDatabase.getInstance(this)
 
@@ -153,85 +186,11 @@ class ZonesActivity : AppCompatActivity() {
                 if (topic == null || message == null)
                     return
 
-                Log.d("MQTTtest", message.toString())
-
-                // basta/global/senzor/kolicinaSvetlosti  → azurirajUIZaSunce(Int)
-                // basta/global/aktuator/krov/status      → azurirajUIKrova(Boolean)
-                // basta/global/senzor/rezervoar          → azurirajNivoVode(Int)
-                // basta/global/senzor/vlaznostVazduha    → AzureWaveGlobalnaVlaznostVazduha(Int)
-                // basta/red{id}/senzor/vlaga             → azurirajVlaguZemljistaNaKartici(redId, Int)
-                // basta/red{id}/aktuator/ventil/status   → ažurira tvStatus na kartici
-
                 val json = MQTTFactory.parseGetMessage(String(message.payload, Charsets.UTF_8))
                 if (json == null) {
                     Log.d("MQTT", "GET callback failed")
                     return
                 }
-
-                /*if (json.uuid == "uuid:1::roof_actuator") {
-                    val state = json.service["State"] as String
-                    lifecycleScope.launch {
-                        db.globalStatusDao().setRoofStatus(state)
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "KROV", state)
-                    }
-
-                    return
-                }
-
-                if (json.uuid == "uuid:1::light_sensor") {
-                    val state = json.service["Luminosity"] as Int
-                    lifecycleScope.launch {
-                        db.globalStatusDao().setLuminosity(state)
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "JACINA SVETLOSTI", state.toString())
-                    }
-
-                    return
-                }
-
-                if (json.uuid == "uuid:1::temperature_sensor") {
-                    val state = json.service["Temperature"] as Int
-                    lifecycleScope.launch {
-                        db.globalStatusDao().setAirTemperature(state)
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "TEMPERATURA VAZDUHA", state.toString())
-                    }
-
-                    return
-                }
-
-                // TODO
-                if (json.uuid == "WATER_LEVEL") {
-                    val state = json.service["WaterLevel"] as Int
-                    lifecycleScope.launch {
-                        db.globalStatusDao().setWaterLevel(state)
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "NIVO VODE", state.toString())
-                    }
-                }
-
-                val sensorMatch = rowSensorRegex.matchEntire(json.uuid)
-                if (sensorMatch != null) {
-                    val rowMatch = rowRegex.matchEntire(json.group) ?: return
-                    val state = json.service["Humidity"] as Int
-
-                    lifecycleScope.launch {
-                        db.backyardDao().setRedMoisture(rowMatch.groupValues[1].toInt(), state)
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "SENZOR", state.toString())
-                    }
-
-                    return
-                }
-
-                val actuatorMatch = rowActuatorRegex.matchEntire(json.uuid)
-                if (actuatorMatch != null) {
-                    val rowMatch = rowRegex.matchEntire(json.group) ?: return
-                    val state = json.service["State"] as String
-
-                    lifecycleScope.launch {
-                        db.backyardDao().setRedStatus(rowMatch.groupValues[1].toInt(), state == "OPEN")
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", state)
-                    }
-
-                    return
-                }*/
 
                 val state = json.service["State"]
                 if (state != "ON") {
@@ -280,13 +239,53 @@ class ZonesActivity : AppCompatActivity() {
 
                             withContext(Dispatchers.Main) {
                                 btnRoofAction.visibility = View.VISIBLE
+                                updateUI()
                             }
                         }
                     }
                     catch(_ : java.lang.ClassCastException) {}
                 }
 
-                updateUI()
+                val match_sensor = rowSensorRegex.matchEntire(json.uuid)
+                if (match_sensor != null) {
+                    try {
+                        val row = match_sensor.groupValues[1].toInt()
+                        val humidity = json.service["Humidity"] as Int
+
+                        lifecycleScope.launch {
+                            db.backyardDao().setRedMoisture(row, humidity)
+                            addLog(
+                                AppDatabase.getInstance(this@ZonesActivity),
+                                "SENZOR",
+                                state.toString()
+                            )
+                        }
+                    } catch(e : Exception) {
+                        Log.d("Test", e.toString())
+                    }
+                }
+
+                /*val match_actuator = rowActuatorRegex.matchEntire(json.uuid)
+                if (match_actuator != null) {
+                    val row = match_actuator.groupValues[1].toInt()
+                    val position = json.service["Position"]
+                    lifecycleScope.launch {
+                        db.backyardDao().setRedStatus(row, position == "OPEN")
+                    }
+                }*/
+                val match_actuator = rowActuatorRegex.matchEntire(json.uuid)
+                if (match_actuator != null) {
+                    val row = match_actuator.groupValues[1].toInt()
+                    val position = json.service["Position"]
+
+                    lifecycleScope.launch {
+                        db.backyardDao().setRedStatus(row, position == "OPEN")
+
+                        withContext(Dispatchers.Main) {
+                            setRowButtonEnabled(row, true)
+                        }
+                    }
+                }
             }
 
             override fun deliveryComplete(token: IMqttDeliveryToken?) {
@@ -298,8 +297,7 @@ class ZonesActivity : AppCompatActivity() {
                 delay(getRequestDelay)
                 if (isDestroyed || isFinishing)
                     break
-                /*MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetMessage(
-                "uuid:${red.redId}::row_actuator", "row${red.redId}", "State", "OPEN", MQTTHandler.valveQOS))*/
+
                 MQTTHandler.publish(
                     MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
                         "uuid:1::roof_actuator", "global", MQTTHandler.roofQOS
@@ -320,49 +318,104 @@ class ZonesActivity : AppCompatActivity() {
                         "uuid:1::light_sensor", "global", MQTTHandler.globalSensorQOS
                     )
                 )
+                val db = AppDatabase.getInstance(this@ZonesActivity)
+                for (i in 0 until db.backyardDao().getAllRedovi().size) {
+                    MQTTHandler.publish(
+                        MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
+                            "uuid:${i + 1}::row_sensor", "row${i + 1}", MQTTHandler.valveQOS
+                        )
+                    )
+                }
+
+                for (i in 0 until db.backyardDao().getAllRedovi().size) {
+                    MQTTHandler.publish(
+                        MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
+                            "uuid:${i + 1}::row_actuator", "row${i + 1}", MQTTHandler.valveQOS
+                        )
+                    )
+                }
             }
         }
     }
 
     // -------------------------------------------------------------------------
-    // UČITAVANJE REDOVA IZ BAZE
+    // UČITAVANJE / SINHRONIZACIJA REDOVA IZ BAZE
     // -------------------------------------------------------------------------
 
-    private fun ucitajIPrivkazujRedove() {
+    /**
+     * Sinhronizuje containerRows sa stanjem u bazi:
+     * - ne briše postojeće kartice osim ako se redovi stvarno promene
+     * - dodaje kartice za nove redove
+     * - uklanja kartice za obrisane redove
+     * - ažurira status/vlagu postojećih kartica iz baze
+     */
+    private fun ucitajIPrikazujRedove() {
         lifecycleScope.launch(Dispatchers.IO) {
             val redovi = baza.backyardDao().getAllRedovi()
             val sveKulture = baza.backyardDao().getAllKulture()
             val kulturaMap = sveKulture.associateBy { it.kulturaId }
+            val statusi = baza.backyardDao().getAllRedoviStatus().associateBy { it.redIDRef }
 
             withContext(Dispatchers.Main) {
-                containerRows.removeAllViews()
-
                 if (redovi.isEmpty()) {
-                    val tvPrazno = TextView(this@ZonesActivity).apply {
-                        text = "Nema konfigurisanih redova.\nIdi u Konfigurator da dodaš redove."
-                        textSize = 14f
-                        setTextColor(Color.parseColor("#7F8C8D"))
-                        gravity = Gravity.CENTER
-                        setPadding(0, 32, 0, 0)
+                    if (karticeMap.isEmpty()) {
+                        if (containerRows.childCount == 0) {
+                            val tvPrazno = TextView(this@ZonesActivity).apply {
+                                text = "Nema konfigurisanih redova.\nIdi u Konfigurator da dodaš redove."
+                                textSize = 14f
+                                setTextColor(Color.parseColor("#7F8C8D"))
+                                gravity = Gravity.CENTER
+                                setPadding(0, 32, 0, 0)
+                            }
+                            containerRows.addView(tvPrazno)
+                        }
                     }
-                    containerRows.addView(tvPrazno)
                     return@withContext
                 }
 
+                // ako je do sada prikazana samo "Nema konfigurisanih redova" poruka, ukloni je
+                if (karticeMap.isEmpty() && containerRows.childCount > 0) {
+                    containerRows.removeAllViews()
+                }
+
+                val currentIds = redovi.map { it.redId }.toSet()
+
+                // ukloni kartice za redove koji više ne postoje
+                val zaUklanjanje = karticeMap.keys - currentIds
+                for (redId in zaUklanjanje) {
+                    karticeMap[redId]?.root?.let { containerRows.removeView(it) }
+                    karticeMap.remove(redId)
+                }
+
+                // dodaj nove ili ažuriraj postojeće kartice
                 for (red in redovi) {
                     val kultura = kulturaMap[red.kulturaIdRef]
-                    val kartica = kreirajKarticu(red, kultura)
-                    containerRows.addView(kartica)
+                    val open = statusi[red.redId]?.open ?: false
+                    val vlaga = statusi[red.redId]?.soilMoisture ?: 0
+
+                    val existing = karticeMap[red.redId]
+                    if (existing == null) {
+                        val kartica = kreirajKarticu(red, kultura, open, vlaga)
+                        containerRows.addView(kartica)
+                    } else {
+                        primeniStatusVentila(red.redId, open)
+                        azurirajVlaguZemljistaNaKartici(red.redId, vlaga)
+                    }
                 }
             }
         }
     }
 
     /**
-     * Dinamički kreira karticu za jedan red bašte.
-     * Sadrži: naziv reda, kulturu, status ventila i dugme za ručno zalivanje.
+     * Kreira karticu za jedan red bašte i registruje njene view-ove u karticeMap,
+     * kako bi se kasnije moglo ažurirati bez findViewWithTag pretrage.
      */
-    private fun kreirajKarticu(red: RedBasteEntity, kultura: KulturaEntity?): LinearLayout {
+    private fun kreirajKarticu(
+        red: RedBasteEntity,
+        kultura: KulturaEntity?,
+        open: Boolean,
+        vlaga: Int
+    ): LinearLayout {
         val dp = resources.displayMetrics.density
 
         // Outer kartica
@@ -403,9 +456,9 @@ class ZonesActivity : AppCompatActivity() {
             layoutParams = lp
         }
 
-        // Vlažnost zemljišta (default 0% dok ne stigne MQTT)
+        // Vlažnost zemljišta (popunjava se iz baze, default 0% ako nema podatka)
         val tvVlaga = TextView(this).apply {
-            text = "Vlažnost zemljišta: 0%"
+            text = "Vlažnost zemljišta: $vlaga%"
             textSize = 13f
             setTextColor(Color.parseColor("#3498DB"))
             val lp = LinearLayout.LayoutParams(
@@ -414,12 +467,10 @@ class ZonesActivity : AppCompatActivity() {
             )
             lp.setMargins(0, (2 * dp).toInt(), 0, (6 * dp).toInt())
             layoutParams = lp
-            // Tag za kasniji MQTT update: pronađi view po red_id
-            tag = "vlaga_${red.redId}"
         }
 
         // Separator
-        val separator = android.view.View(this).apply {
+        val separator = View(this).apply {
             setBackgroundColor(Color.parseColor("#E5E7EB"))
             val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
             lp.setMargins(0, (4 * dp).toInt(), 0, (12 * dp).toInt())
@@ -427,58 +478,58 @@ class ZonesActivity : AppCompatActivity() {
         }
 
         // Red sa statusom ventila i dugmetom
-        redKontrola = LinearLayout(this).apply {
+        val redKontrola = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        // Status ventila (defaultno ZATVOREN dok ne stigne MQTT)
+        // Status ventila (popunjava se odmah ispod, prema stanju iz baze)
         val tvStatus = TextView(this).apply {
-            text = "● ZATVOREN"
             textSize = 13f
-            tag = "tvStatus_red${red.redId}"
-            setTextColor(Color.parseColor("#E74C3C"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         // Dugme za ručno zalivanje - toggle OPEN/CLOSE
-        var zalivanjAktivno = false
-
         val btnZalij = Button(this).apply {
-            text = "ZALIJ"
-            tag = "btnZalij_${red.redId}"
             setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#3498DB"))
             textSize = 13f
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
 
-            setOnClickListener {
-                zalivanjAktivno = !zalivanjAktivno
+            /*setOnClickListener {
+                val trenutno = karticeMap[red.redId] ?: return@setOnClickListener
+                // novo stanje je suprotno od trenutno prikazanog
+                val novoZalivanjeAktivno = trenutno.btnZalij.text == "ZALIJ"
+                val pozicija = if (novoZalivanjeAktivno) "OPEN" else "CLOSED"
 
-                if (zalivanjAktivno) {
-                    MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetMessage(
-                        "uuid:${red.redId}::row_actuator", "row${red.redId}", "State", "OPEN", MQTTHandler.valveQOS))
-                    lifecycleScope.launch {
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", "OPEN")
-                    }
-                    tvStatus.text = "● AKTIVNO"
-                    tvStatus.setTextColor(Color.parseColor("#2ECC71"))
-                    text = "PRESTANI"
-                    setBackgroundColor(Color.parseColor("#E74C3C"))
-                } else {
-                    MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetMessage(
-                        "uuid:${red.redId}::row_actuator", "global", "State", "CLOSED", MQTTHandler.valveQOS))
-                    lifecycleScope.launch {
-                        addLog(AppDatabase.getInstance(this@ZonesActivity), "VENTIL", "CLOSED")
-                    }
-                    tvStatus.text = "● ZATVOREN"
-                    tvStatus.setTextColor(Color.parseColor("#E74C3C"))
-                    text = "ZALIJ"
-                    setBackgroundColor(Color.parseColor("#3498DB"))
-                }
+                MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetMessage(
+                    "uuid:${red.redId}::row_actuator", "row${red.redId}", "Position", pozicija, MQTTHandler.valveQOS))
+
+                primeniStatusVentila(red.redId, novoZalivanjeAktivno)
+            }*/
+            setOnClickListener {
+                val trenutno = karticeMap[red.redId] ?: return@setOnClickListener
+
+                val novoZalivanjeAktivno = trenutno.btnZalij.text == "ZALIJ"
+                val pozicija = if (novoZalivanjeAktivno) "OPEN" else "CLOSED"
+
+                setRowButtonEnabled(red.redId, false)
+
+                MQTTHandler.publish(
+                    MQTTHandler.publishTopic,
+                    MQTTFactory.createSetMessage(
+                        "uuid:${red.redId}::row_actuator",
+                        "row${red.redId}",
+                        "Position",
+                        pozicija,
+                        MQTTHandler.valveQOS
+                    )
+                )
+
+                // Optional optimistic UI update
+                primeniStatusVentila(red.redId, novoZalivanjeAktivno)
             }
         }
 
@@ -490,6 +541,16 @@ class ZonesActivity : AppCompatActivity() {
         kartica.addView(tvVlaga)
         kartica.addView(separator)
         kartica.addView(redKontrola)
+
+        karticeMap[red.redId] = RedKarticaViews(
+            root = kartica,
+            tvVlaga = tvVlaga,
+            tvStatus = tvStatus,
+            btnZalij = btnZalij
+        )
+
+        // postavi inicijalni status ventila prema bazi
+        primeniStatusVentila(red.redId, open)
 
         return kartica
     }
@@ -513,26 +574,37 @@ class ZonesActivity : AppCompatActivity() {
 
     /**
      * Poziva se iz MQTT callback-a za topik basta/red{id}/senzor/vlaga
-     * Pronalazi karticu po tagu i ažurira prikaz vlažnosti zemljišta.
+     * Pronalazi karticu po redId-u (kroz karticeMap) i ažurira prikaz vlažnosti zemljišta.
      */
     fun azurirajVlaguZemljistaNaKartici(redId: Int, procenat: Int) {
-        val tvVlaga = containerRows.findViewWithTag<TextView>("vlaga_$redId")
-        tvVlaga?.text = "Vlažnost zemljišta: $procenat%"
+        karticeMap[redId]?.tvVlaga?.text = "Vlažnost zemljišta: $procenat%"
     }
 
+    /**
+     * Ažurira prikaz statusa ventila na kartici prema stanju iz baze.
+     * Ne upisuje ništa u bazu - to se radi na mestu gde se status zapravo menja
+     * (klik na dugme, ili MQTT callback koji ažurira red status).
+     */
     fun azurirajStatusDugmetaNaKartici(redId: Int, zalivanjAktivno: Boolean) {
-        val tvStatus = containerRows.findViewWithTag<TextView>("tvStatus_$redId")
-        val btnZalij = containerRows.findViewWithTag<Button>("btnZalij_$redId")
+        primeniStatusVentila(redId, zalivanjAktivno)
+    }
+
+    /**
+     * Postavlja izgled (tekst i boje) statusa ventila i dugmeta za dati red,
+     * bez ikakvog pristupa bazi.
+     */
+    private fun primeniStatusVentila(redId: Int, zalivanjAktivno: Boolean) {
+        val kartica = karticeMap[redId] ?: return
         if (zalivanjAktivno) {
-            tvStatus.text = "● AKTIVNO"
-            tvStatus.setTextColor(Color.parseColor("#2ECC71"))
-            btnZalij.text = "PRESTANI"
-            btnZalij.setBackgroundColor(Color.parseColor("#E74C3C"))
+            kartica.tvStatus.text = "● AKTIVNO"
+            kartica.tvStatus.setTextColor(Color.parseColor("#2ECC71"))
+            kartica.btnZalij.text = "PRESTANI"
+            kartica.btnZalij.setBackgroundColor(Color.parseColor("#E74C3C"))
         } else {
-            tvStatus.text = "● ZATVOREN"
-            tvStatus.setTextColor(Color.parseColor("#E74C3C"))
-            btnZalij.text = "ZALIJ"
-            btnZalij.setBackgroundColor(Color.parseColor("#3498DB"))
+            kartica.tvStatus.text = "● ZATVOREN"
+            kartica.tvStatus.setTextColor(Color.parseColor("#E74C3C"))
+            kartica.btnZalij.text = "ZALIJ"
+            kartica.btnZalij.setBackgroundColor(Color.parseColor("#3498DB"))
         }
     }
 
@@ -540,13 +612,13 @@ class ZonesActivity : AppCompatActivity() {
     // MQTT (stubovi - popuniti kada se implementira MqttHelper)
     // -------------------------------------------------------------------------
 
-   // private fun pretplatiSeNaMqttSenzore() {
-        // basta/global/senzor/kolicinaSvetlosti  → azurirajUIZaSunce(Int)
-        // basta/global/aktuator/krov/status      → azurirajUIKrova(Boolean)
-        // basta/global/senzor/rezervoar          → azurirajNivoVode(Int)
-        // basta/global/senzor/vlaznostVazduha    → azurirajGlobalnaVlaznostVazduha(Int)
-        // basta/red{id}/senzor/vlaga             → azurirajVlaguZemljistaNaKartici(redId, Int)
-        // basta/red{id}/aktuator/ventil/status   → ažurira tvStatus na kartici
+    // private fun pretplatiSeNaMqttSenzore() {
+    // basta/global/senzor/kolicinaSvetlosti  → azurirajUIZaSunce(Int)
+    // basta/global/aktuator/krov/status      → azurirajUIKrova(Boolean)
+    // basta/global/senzor/rezervoar          → azurirajNivoVode(Int)
+    // basta/global/senzor/vlaznostVazduha    → azurirajGlobalnaVlaznostVazduha(Int)
+    // basta/red{id}/senzor/vlaga             → azurirajVlaguZemljistaNaKartici(redId, Int)
+    // basta/red{id}/aktuator/ventil/status   → ažurira tvStatus na kartici
     //}
 
     private fun posaljiKrovuMqttKomandu() {
@@ -594,7 +666,7 @@ class ZonesActivity : AppCompatActivity() {
     }
 
     private fun azurirajUIKrova(otvoren: Boolean) {
-        isRoofOpened = otvoren
+        //isRoofOpened = otvoren
         btnRoofAction.isEnabled = true
         btnRoofAction.alpha = 1.0F
         if (isRoofOpened) {

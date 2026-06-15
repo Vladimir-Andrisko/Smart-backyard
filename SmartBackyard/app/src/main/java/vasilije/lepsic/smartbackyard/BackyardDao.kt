@@ -39,7 +39,10 @@ interface BackyardDao {
     suspend fun getAllRedoviStatus() : List<RedBasteStatusEntity>
 
     @Query("SELECT * FROM redovi_baste_status WHERE red_id_ref = :id")
-    suspend fun getRedStatusByRedId(id : Int) : RedBasteStatusEntity
+    suspend fun getRedStatusByRedId(id : Int) : RedBasteStatusEntity?
+
+    @Query("DELETE FROM redovi_baste_status")
+    suspend fun deleteAllRedoviStatus()
 
     @Query("UPDATE redovi_baste_status SET `open` = :isOpen WHERE red_id_ref = :id")
     suspend fun setRedStatus(id: Int, isOpen : Boolean)

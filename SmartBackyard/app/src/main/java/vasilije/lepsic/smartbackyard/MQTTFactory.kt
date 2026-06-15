@@ -29,6 +29,26 @@ object MQTTFactory {
         return createMessage(json.toString(), qos)
     }
 
+    fun createSetRowsMessage(
+        rows: List<RowCommandEntry>
+    ): MqttMessage {
+        val json = JSONObject().apply {
+            put("command_type", "SET.garden_rows")
+            put("control", JSONObject().apply {
+                for (i in rows.indices) {
+                    put("row${i + 1}", JSONObject().apply {
+                        put("max_moisture", rows[i].max_moisture)
+                        put("min_moisture", rows[i].min_moisture)
+                        put("max_water", rows[i].max_water)
+                        put("min_pause", rows[i].min_pause)
+                    })
+                }
+            })
+        }
+
+        return createMessage(json.toString(), MQTTHandler.configQOS)
+    }
+
 
 
     // GET komanda
@@ -110,4 +130,11 @@ data class GetCommand(
     val uuid: String,
     val group: String,
     val service: Map<String, Any>
+)
+
+data class RowCommandEntry(
+    val max_moisture: Float,
+    val min_moisture: Float,
+    val max_water: Int,
+    val min_pause: Int
 )
