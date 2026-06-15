@@ -6,7 +6,7 @@ static string uuid;
 static string pub_topic;
 static string state_open;
 static string state_closed;
-static string current_position = "CLOSED";
+static string current_position = "OPEN";
 static int keepAlive = 30;
 
 atomic<bool> running = true;
@@ -29,20 +29,19 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc){
 
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg){
 	string payload(static_cast<const char*>(msg->payload), msg->payloadlen);
-    json data;
     string topic(msg->topic);
-    cout << "TOPIC: " << topic << endl;
-
-    cout << payload << endl;
+    json data;
      
     try{
 		data = json::parse(payload);
 	}catch(const exception &e){	
 		cout << "[JSON] " << e.what() << endl;
+        return;
 	}
+
     string new_position = data["Service"]["Position"];
     if(new_position != state_open && new_position != state_closed){
-        cout << "Wrong position: " << new_position << endl;
+        cout << "[ERROR] Wrong position: " << new_position << endl;
         return;
     }
 
@@ -52,7 +51,8 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
             int time = generateRandomTime();
             std::this_thread::sleep_for(std::chrono::seconds(time));
 
-            string msg = construct_msg(current_position);
+            string msg = construct_msg(new_position);
+            cout << "[INFO] Actuator position: " << new_position << endl;
             mosquitto_publish(mosq, NULL, pub_topic.c_str(), msg.size(), msg.c_str(), 0, false);
 
         }).detach();
@@ -94,8 +94,10 @@ int main(int argc, char* argv[]){
 		mosquitto_destroy(mosq);
 		return -1;
 	}
-    
+
     mosquitto_loop_start(mosq);    
+    string msg = construct_msg(current_position);
+    mosquitto_publish(mosq, NULL, pub_topic.c_str(), msg.size(), msg.c_str(), 0, false);
 
     {
         unique_lock<mutex> ul(sleepMx);
@@ -151,14 +153,11 @@ void parseDesc(const string &file_path){
     pub_topic = desc["topic"];
     keepAlive = desc["keepAlive"];
 
-    cout << "PUB topic: " << pub_topic << endl;
-    cout << "SUB topic: " << ROOF_ACTUATOR_TOPIC_SUB << endl;
-
     json service = desc["Service"];
     string position = service["Position"];
 
     size_t pos = position.find('/');
     state_open = position.substr(0, pos);
     state_closed = position.substr(pos+1);
-    current_position = "OPEN";
+    current_position = state_open;
 }

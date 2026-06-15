@@ -8,13 +8,14 @@ atomic<bool> running(true);
 
 static string uuid;
 static string topic;
+static string group;
 static int max_humidity;
 static int min_humidity;
 static int keep_alive = 30;
 
 void handleSignal(int){
     running = false;
-        sleepCv.notify_all();
+    sleepCv.notify_all();
 }
 
 int main(int argc, char* argv[]){
@@ -42,8 +43,8 @@ int main(int argc, char* argv[]){
 
     ssdp->start();
 	mosquitto_lib_init();
-    string subscribe_string = "row_sensor:" + uuid;
-	mosq = mosquitto_new(subscribe_string.c_str(), true, NULL);
+    string mqtt_client_name = string(group + "_sensor");
+	mosq = mosquitto_new(mqtt_client_name.c_str(), true, NULL);
 
 	rc = mosquitto_connect(mosq, "localhost", 1883, mqtt_alive);
 	if(rc != 0){
@@ -111,6 +112,7 @@ void parseDesc(const string &file_path){
 
     uuid = string("uuid:" + desc["uuid"].get<string>());
     topic = desc["topic"];
+    group = desc["group"];
     keep_alive = desc["keepAlive"];
 
     json service = desc["Service"];

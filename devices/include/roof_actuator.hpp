@@ -18,7 +18,6 @@
 using json = nlohmann::json;
 
 static constexpr const char* ROOF_ACTUATOR_TOPIC_SUB = "garden/global/actuator/roof_actuator/cmd";
-static constexpr int SLEEP_TIME = 10;
 static constexpr int mqtt_QoS = 0;
 static constexpr int mqtt_alive = 120;
 

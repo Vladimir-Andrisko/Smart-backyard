@@ -96,9 +96,9 @@ void SSDPDevice::setupSocket(){
 void SSDPDevice::sendNotifyAlive(){
     for(int i = 0; i < QoS; i++){
         if(sendto(socket_fd_, (const char*)alive_msg.c_str(), alive_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
-            safeCout("[WARN] Failed to send alive msg!\n");
+            safeCout("[SSDP] Failed to send alive msg!\n");
         }else{
-            safeCout("[INFO] Sent alive msg!\n");
+            safeCout("[SSDP] Sent alive msg!\n");
         }
     }
 }
@@ -106,9 +106,9 @@ void SSDPDevice::sendNotifyAlive(){
 void SSDPDevice::sendNotifyByebye(){
     for(int i = 0; i < QoS; i++){
         if(sendto(socket_fd_, (const char*)byebye_msg.c_str(), byebye_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
-            safeCout("[WARN] Failed to send byebye msg!\n");
+            safeCout("[SSDP] Failed to send byebye msg!\n");
         }else{
-            safeCout("[INFO] Sent byebye msg!\n");
+            safeCout("[SSDP] Sent byebye msg!\n");
         }
     }   
 }
@@ -116,9 +116,9 @@ void SSDPDevice::sendNotifyByebye(){
 void SSDPDevice::respondToSearch(const sockaddr_in& sender){
     for(int i = 0; i < QoS; i++){
         if(sendto(socket_fd_, (const char*)response_msg.c_str(), response_msg.size(), 0, (const sockaddr *)&multicastAddr, sizeof(multicastAddr)) < 0){
-            safeCout("[WARN] Failed to send response msg!\n");
+            safeCout("[SSDP] Failed to send response msg!\n");
         }else{
-            safeCout("[INFO] Sent respondToSearch msg!\n");
+            safeCout("[SSDP] Sent respondToSearch msg!\n");
         }
     }
 }

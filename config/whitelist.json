@@ -1,6 +1,5 @@
 {
     "whitelist": [
-        "uuid:1::pressure_sensor",
         "uuid:1::humidity_sensor",
         "uuid:1::light_sensor",
         "uuid:1::temperature_sensor",

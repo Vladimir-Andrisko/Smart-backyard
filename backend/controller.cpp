@@ -21,14 +21,15 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	json data;
 
 	if(!registered_topics.count(topic)){
-		cout << "Topic not registered: " << topic << endl;
+		cout << "[ERROR] Topic not registered: " << topic << endl;
 		return;
 	}
 
 	try{
 		data = json::parse(payload);
-	}catch(exception e){	
-		cout << e.what() << endl;
+	}catch(const exception &e){	
+		cout << "[JSON] Error parsing msg: " << e.what() << endl;
+		return;
 	}
 
 	if(topic == HUMIDITY_SENSOR_TOPIC){
@@ -38,17 +39,18 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	}else if(topic == LIGHT_SENSOR_TOPIC){
 		device_state[data["uuid"]]["Intensity"] = data["Service"]["Intensity"].get<int>();
 	}else if(topic == ROOF_ACTUATOR_TOPIC_SUB){
-
 		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<string>();
-
 	}else if(topic.find("/sensor/row_sensor") != std::string::npos){
 		device_state[data["uuid"]]["Humidity"] = data["Service"]["Humidity"].get<int>();
 	}else if(topic.find("/actuator/row_actuator") != std::string::npos){
 		device_state[data["uuid"]]["Position"] = data["Service"]["Position"].get<string>();
 	}else if(topic == APP_TOPIC_SUB){
 		parseAppData(data, mosq);
+	}else if(topic == APP_TOPIC_ALIVE){
+		cout << "[APP] IT'S ALIVE!!\n";
 	}
 
+	std::cout << "\033[2J\033[1;1H" << std::flush;
 	cout << "======================================================================================\n";
 	for(auto &pair : device_state){
 		cout << pair.first << ": " << pair.second << endl;
@@ -66,6 +68,7 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc) {
 	mosquitto_subscribe(mosq, NULL, "garden/+/sensor/row_sensor", 0);
 	mosquitto_subscribe(mosq, NULL, "garden/+/actuator/row_actuator", 0);
 	mosquitto_subscribe(mosq, NULL, APP_TOPIC_SUB, 0);
+	mosquitto_subscribe(mosq, NULL, APP_TOPIC_ALIVE, 0);
 	mosquitto_message_callback_set(mosq, on_message);
 }
 
@@ -96,7 +99,8 @@ int main(){
 	}
 	cout << "Connected to the broker\n";
 
-
+	registered_topics.insert(APP_TOPIC_SUB);
+	registered_topics.insert(APP_TOPIC_ALIVE);
 	mosquitto_loop_start(mosq);
 
 	string roof_msg = "OPEN";
@@ -104,16 +108,19 @@ int main(){
 	char c;
 	while((c = getchar()) != 'q'){
 		if(c == 'r'){
+			string id = "uuid:1::row_actuator";
+			string group = "row1";
+			string top = generateTopic(id, group);
 			if(roof_msg == "OPEN"){
-				msg = generateActuatorMsg("uuid:1::roof_actuator", "CLOSED");
+				msg = generateActuatorMsg(id, "CLOSED");
 				roof_msg = "CLOSED";
 			}
 			else{
 				roof_msg = "OPEN";
-				msg = generateActuatorMsg("uuid:1::roof_actuator", "OPEN");
+				msg = generateActuatorMsg(id, "OPEN");
 			}
-			cout << "Sending message to valve: " << msg << "\n";
-			int ret = mosquitto_publish(mosq, NULL, "garden/global/actuator/roof_actuator/cmd", msg.size(), msg.c_str(), 0, false);
+			cout << "Sending message to actuator (" << id << "):  " << msg << "\n";
+			int ret = mosquitto_publish(mosq, NULL, top.c_str(), msg.size(), msg.c_str(), 0, false);
 		}
 	}
 
@@ -144,8 +151,6 @@ void setup_callback(){
 				json desc = json::parse(file);
 				json service = desc["Service"];
 				string topic = desc["topic"];
-
-				cout << "TOPIC: " << topic << endl;
 
 				service["State"] = "ON";
 				registered_topics.emplace(topic);
@@ -184,36 +189,40 @@ void parseAppData(json &data, struct mosquitto *mosq){
 	string command_type = data["command_type"];
 	string uuid = data["uuid"];
 	string group = data["group"];
-	cout << "Command type: " << command_type << endl;
-	cout << "UUID: " << uuid << endl;
+	cout << "[DEBUG] Command type: " << command_type << endl;
+	cout << "[DEBUG] UUID: " << uuid << endl;
 
 	if(command_type == "SET"){
 		json serv = data["Service"];
 		cout << "Service: " << serv.dump() << endl;
+
 		string msg = generateActuatorMsg(uuid, serv["Position"]);
-		string top = generateTopic(uuid);
+		string top = generateTopic(uuid, group);
 		int ret = mosquitto_publish(mosq, NULL, top.c_str(), msg.size(), msg.c_str(), 0, false);
+
 	}else if(command_type == "GET"){
+		json temp;
+		temp["uuid"] = uuid;
+		temp["group"] = group;
+
+		if(!device_state.count(uuid)) return;
+
 		json device_info = device_state[uuid];
-		string msg = device_info.dump();
+		temp["Service"] = device_info;
+
+		string msg = temp.dump();
+		cout << "[DEBUG] Response to GET: " << msg << endl;
+
 		int ret = mosquitto_publish(mosq, NULL, APP_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);
 	}
 }
 
-string generateTopic(string uuid){
-	int pos = 0;
+string generateTopic(string uuid, string group){
 	if(uuid == "uuid:1::roof_actuator"){
 		return ROOF_ACTUATOR_TOPIC_PUB;
+	}else{
+		return string("garden/" + group + "/actuator/row_actuator/cmd");
 	}
-
-	size_t start = uuid.find(':');
-    size_t end = uuid.find("::");
-    if(end != string::npos){
-        string id = uuid.substr(start + 1, end - start - 1);
-        return "garden/row" + id + "/actuator/row_actuator";
-    }
-
-    return "";
 }
 
 void control_loop(){

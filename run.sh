@@ -2,7 +2,7 @@
 SLEEP=0.2
 TAG="smart_backyard"
 
-gnome-terminal -- ./bin/controller
+gnome-terminal -- ./bin/controller &
 sleep $SLEEP
 gnome-terminal -- ./bin/temperature_sensor config/sensor/temperature_sensor_desc.json $TAG &
 sleep $SLEEP

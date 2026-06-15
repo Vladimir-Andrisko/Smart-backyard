@@ -87,20 +87,20 @@ void SSDPController::livenessCheckLoop(){
 
 void SSDPController::setupSocket(){
     if((socket_fd_ = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
-        throw std::runtime_error("Failed at socket()\n");
+        throw std::runtime_error("[SSDP] Failed at socket()\n");
     }
 
     int yes = 1;
     if(setsockopt(socket_fd_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0){
         close(socket_fd_);
-        throw std::runtime_error("Failed at setsockopt()\n");
+        throw std::runtime_error("[SSDP] Failed at setsockopt()\n");
     }
 
     struct timeval tv{};
     tv.tv_sec = SOCKET_TIMEOUT;
     if(setsockopt(socket_fd_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0){
         close(socket_fd_);
-        throw std::runtime_error("Failed at setsockopt()\n");
+        throw std::runtime_error("[SSDP] Failed at setsockopt()\n");
     }
 
     sockaddr_in addr{};
@@ -110,7 +110,7 @@ void SSDPController::setupSocket(){
 
     if(bind(socket_fd_, (sockaddr*)&addr, sizeof(addr)) < 0){
         close(socket_fd_);
-        throw std::runtime_error("Failed at bind()\n");
+        throw std::runtime_error("[SSDP] Failed at bind()\n");
     }
 
     ip_mreq mreq{};
@@ -119,7 +119,7 @@ void SSDPController::setupSocket(){
 
     if(setsockopt(socket_fd_, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0){
         close(socket_fd_);
-        throw std::runtime_error("Failed at setsockopt()\n");
+        throw std::runtime_error("[SSDP] Failed at setsockopt()\n");
     }
 
     multicastAddr.sin_family = AF_INET;
@@ -138,9 +138,9 @@ void SSDPController::sendControllerNotify(const Device &dev) {
 
     if ((sendto(socket_fd_, msg.c_str(), msg.size(), 0, (sockaddr*)&multicastAddr, sizeof(multicastAddr)) < 0) && debug_)
     {
-        safeCout("[WARN] Controller NOTIFY send failed for: " + dev.uuid + "\n");
+        safeCout("[SSDP] Controller NOTIFY send failed for: " + dev.uuid + "\n");
     } else {
-        safeCout("[INFO] Controller sent BYEBYE for: " + dev.uuid + "\n");
+        safeCout("[SSDP] Controller sent BYEBYE for: " + dev.uuid + "\n");
     }
 }
 
@@ -181,13 +181,13 @@ void SSDPController::listenLoop(){
 
         if (msg.find("ssdp:byebye") != std::string::npos) {
             removeDevice(dev);
-            safeCout("[INFO] Device BYEBYE: " + dev.uuid + "\n");
+            safeCout("[SSDP] Device BYEBYE: " + dev.uuid + "\n");
         }else if(msg.find("ssdp:alive") != std::string::npos){
             updateDevice(dev);
-            safeCout("[INFO] Device ALIVE: " + dev.uuid + "\n");
+            safeCout("[SSDP] Device ALIVE: " + dev.uuid + "\n");
         }else if(msg.find("ssdp:discover") != std::string::npos){
             updateDevice(dev);
-            safeCout("[INFO] Device responding to M-search: " + dev.uuid + "\n");
+            safeCout("[SSDP] Device responding to M-search: " + dev.uuid + "\n");
         }
     }
 }
@@ -197,9 +197,9 @@ void SSDPController::searchLoop(){
 
     while(running){
         if (sendto(socket_fd_, m_searchMsg.c_str(), m_searchMsg.size(), 0, (sockaddr*)&multicastAddr, sizeof(multicastAddr)) < 0){
-            safeCout("[WARN] Controller SEARCH failed!\n");
+            safeCout("[SSDP] Controller SEARCH failed!\n");
         } else {
-            safeCout("[INFO] Controller sent M-SEARCH\n");
+            safeCout("[SSDP] Controller sent M-SEARCH\n");
         }
 
         if(sleepCv.wait_for(mx, std::chrono::seconds(SEARCH_TIMEOUT), [this]{return !running;})){
@@ -245,7 +245,6 @@ Device SSDPController::parseMessage(const std::string &msg){
     return dev;
 }
 
-
 void SSDPController::loadWhitelist(const std::string& path)
 {
     std::ifstream file(path);
@@ -257,18 +256,6 @@ void SSDPController::loadWhitelist(const std::string& path)
     for(const auto &item : data["whitelist"])
         whitelist.insert(item.get<std::string>());
 }
-
-
-// std::vector<Device> SSDPController::getAllDevices(){
-//     std::lock_guard<std::mutex> lock(mx);
-
-//     std::vector<Device> out;
-//     for (auto & [uuid, dev] : device_dict){
-//         out.push_back(dev);
-//     }
-
-//     return out;
-// }
 
 void SSDPController::setOnDeviceAdded(std::function<void(const Device&)> callback){
     onDeviceAdded = callback;

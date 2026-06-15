@@ -26,6 +26,7 @@ static constexpr const char* LIGHT_SENSOR_TOPIC = "garden/global/sensor/light_se
 
 static constexpr const char* APP_TOPIC_SUB = "garden/app/controller";
 static constexpr const char* APP_TOPIC_PUB = "garden/app/app";
+static constexpr const char* APP_TOPIC_ALIVE = "garden/app/alive";
 
 static constexpr int REFRESH_RATE = 100;
 
@@ -35,6 +36,6 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 std::string generateActuatorMsg(std::string uuid, std::string position);
 void setup_callback();
 void parseAppData(json &data, struct mosquitto *mosq);
-std::string generateTopic(std::string uuid);
+std::string generateTopic(std::string uuid, std::string group);
 
 #endif

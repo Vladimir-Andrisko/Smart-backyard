@@ -79,9 +79,17 @@ int generateTemperature()
     static random_device rd;
     static mt19937 gen(rd());
 
-    normal_distribution<> dist(15.0, 15.0);
+    time_t now = std::time(nullptr);
+    tm *ltm = localtime(&now);
 
+    int hour = ltm->tm_hour;
+
+    double mean = 15.0 + 10.0 * sin((hour - 8) * M_PI / 12.0);
+    double deviation = 2.5;
+
+    normal_distribution<> dist(mean, deviation);
     int value = (int)round(dist(gen));
+
     if (value < min_temp) value = min_temp;
     if (value > max_temp) value = max_temp;
 

@@ -3,7 +3,7 @@
     "group": "global",
     "topic": "garden/global/actuator/roof_actuator",
     "max_age": 150,
-    "keepAlive": 10,
+    "keepAlive": 60,
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",

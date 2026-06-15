@@ -4,6 +4,8 @@ using namespace std;
 SSDPDevice *ssdp = nullptr;
 static string uuid;
 static string pub_topic;
+static string sub_topic;
+static string group;
 static string state_open;
 static string state_closed;
 static string current_position = "CLOSED";
@@ -23,7 +25,7 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc){
 		printf("Error with result code: %d\n", rc);
 		exit(-1);
 	}
-	mosquitto_subscribe(mosq, NULL, ROW_ACTUATOR_TOPIC_SUB, mqtt_QoS);
+	mosquitto_subscribe(mosq, NULL, sub_topic.c_str(), mqtt_QoS);
 	mosquitto_message_callback_set(mosq, on_message);
 }
 
@@ -31,11 +33,11 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	string payload(static_cast<const char*>(msg->payload), msg->payloadlen);
     json data;
 
-    cout << "Podatak: " << payload << endl;
     try{
 		data = json::parse(payload);
 	}catch(const exception &e){	
 		cout << "[JSON] " << e.what() << endl;
+        return;
 	}
     string new_position = data["Service"]["Position"];
     if(new_position != state_open && new_position != state_closed){
@@ -85,7 +87,10 @@ int main(int argc, char* argv[]){
     ssdp->start();
 	mosquitto_lib_init();
 
-	mosq = mosquitto_new("roof_actuator", true, NULL);
+    sub_topic = string("garden/" + group + "/actuator/row_actuator/cmd");
+    string mqtt_client_name = string(group + "_actuator");
+
+	mosq = mosquitto_new(mqtt_client_name.c_str(), true, NULL);
     mosquitto_connect_callback_set(mosq, on_connect);
 
 	rc = mosquitto_connect(mosq, "localhost", 1883, mqtt_alive);
@@ -96,6 +101,8 @@ int main(int argc, char* argv[]){
 	}
     
     mosquitto_loop_start(mosq);    
+    string msg = construct_msg(current_position);
+    mosquitto_publish(mosq, NULL, pub_topic.c_str(), msg.size(), msg.c_str(), 0, false);
 
     {
         unique_lock<mutex> ul(sleepMx);
@@ -123,7 +130,7 @@ int generateRandomTime()
     static random_device rd;
     static mt19937 gen(rd());
 
-    uniform_int_distribution<> dist(3, 5);
+    uniform_int_distribution<> dist(1, 3);
     int value = (int)dist(gen);
 
     return value;
@@ -142,7 +149,7 @@ void parseDesc(const string &file_path){
     ifstream file(file_path);
 
     if(!file.is_open())
-        throw runtime_error("Unable to open description file!");
+        throw runtime_error("[ERROR] Unable to open description file!");
 
     json desc = json::parse(file);
     file.close();
@@ -150,9 +157,7 @@ void parseDesc(const string &file_path){
     uuid = string("uuid:" + desc["uuid"].get<string>());
     pub_topic = desc["topic"];
     keepAlive = desc["keepAlive"];
-
-    cout << "PUB topic: " << pub_topic << endl;
-    cout << "SUB topic: " << ROW_ACTUATOR_TOPIC_SUB << endl;
+    group = desc["group"];
 
     json service = desc["Service"];
     string position = service["Position"];
@@ -160,5 +165,5 @@ void parseDesc(const string &file_path){
     size_t pos = position.find('/');
     state_open = position.substr(0, pos);
     state_closed = position.substr(pos+1);
-    current_position = "OPEN";
+    current_position = state_closed;
 }
