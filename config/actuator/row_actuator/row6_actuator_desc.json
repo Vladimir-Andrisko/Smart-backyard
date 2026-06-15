@@ -1,0 +1,12 @@
+{
+    "uuid": "6::row_actuator",
+    "group": "row6",
+    "topic": "garden/row6/actuator/row_actuator",
+    "max_age": 60,
+    "keepAlive": 10,
+
+    "Service" : {
+        "State" : "ON/OFF/UNREACHABLE",
+        "Position" : "OPEN/CLOSED"
+    }
+}

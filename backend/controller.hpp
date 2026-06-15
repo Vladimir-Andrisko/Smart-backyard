@@ -28,7 +28,23 @@ static constexpr const char* APP_TOPIC_SUB = "garden/app/controller";
 static constexpr const char* APP_TOPIC_PUB = "garden/app/app";
 static constexpr const char* APP_TOPIC_ALIVE = "garden/app/alive";
 
-static constexpr int REFRESH_RATE = 100;
+static constexpr int CONTROL_REFRESH_RATE = 1000;
+static constexpr int PRINT_REFRESH_RATE = 500;
+
+struct RowControl{
+    std::string sensor_uuid;
+    std::string actuator_uuid;
+    std::string group;
+
+    int min_moisture;
+    int max_moisture;
+    int min_pause;
+    int max_water; 
+    bool watering = false;
+
+    std::chrono::steady_clock::time_point last_watering_end;
+    std::chrono::steady_clock::time_point watering_start;
+};
 
 void handleSignal(int);
 void on_connect(struct mosquitto *mosq, void *obj, int rc);
@@ -37,5 +53,7 @@ std::string generateActuatorMsg(std::string uuid, std::string position);
 void setup_callback();
 void parseAppData(json &data, struct mosquitto *mosq);
 std::string generateTopic(std::string uuid, std::string group);
+void print_loop();
+void control_loop(struct mosquitto *mosq);
 
 #endif

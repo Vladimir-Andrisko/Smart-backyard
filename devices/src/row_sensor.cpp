@@ -77,12 +77,12 @@ int main(int argc, char* argv[]){
 
 int generateHumidity()
 {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
+    static random_device rd;
+    static mt19937 gen(rd());
 
-    std::normal_distribution<> dist(50.0, 15.0);
+    uniform_int_distribution<> dist(20.0, 70.0);
 
-    int value = (int)std::round(dist(gen));
+    int value = (int)round(dist(gen));
 
     if (value < min_humidity) value = min_humidity;
     if (value > max_humidity) value = max_humidity;

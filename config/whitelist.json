@@ -9,6 +9,11 @@
         "uuid:3::row_sensor",
         "uuid:4::row_sensor",
         "uuid:5::row_sensor",
+        "uuid:6::row_sensor",
+        "uuid:7::row_sensor",
+        "uuid:8::row_sensor",
+        "uuid:9::row_sensor",
+        "uuid:10::row_sensor",
 
         "uuid:1::roof_actuator",
 
@@ -16,6 +21,11 @@
         "uuid:2::row_actuator",
         "uuid:3::row_actuator",
         "uuid:4::row_actuator",
-        "uuid:5::row_actuator"
+        "uuid:5::row_actuator",
+        "uuid:6::row_actuator",
+        "uuid:7::row_actuator",
+        "uuid:8::row_actuator",
+        "uuid:9::row_actuator",
+        "uuid:10::row_actuator"
     ]
 }
