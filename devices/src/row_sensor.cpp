@@ -4,19 +4,66 @@ using namespace std;
 static SSDPDevice *ssdp = nullptr;
 static mutex sleepMx;
 static condition_variable sleepCv;
+
 atomic<bool> running(true);
 
 static string uuid;
 static string topic;
 static string group;
+static string VALVE_CONTROL_TOPIC;
 static int max_humidity;
 static int min_humidity;
 static int keep_alive = 30;
+
+// Control signals
+atomic<int> hummidity;
+atomic<int> light_intensity;
+atomic<bool> is_valve_open(false);
 
 void handleSignal(int){
     running = false;
     sleepCv.notify_all();
 }
+
+void on_connect(struct mosquitto *mosq, void *obj, int rc){
+	if(rc) {
+		printf("Error with result code: %d\n", rc);
+		exit(-1);
+	}
+	mosquitto_subscribe(mosq, NULL, VALVE_CONTROL_TOPIC.c_str(), mqtt_QoS);
+    mosquitto_subscribe(mosq, NULL, LIGHT_SENSOR_TOPIC, mqtt_QoS);
+    mosquitto_subscribe(mosq, NULL, HUMIDITY_SENSOR_TOPIC, mqtt_QoS);
+	mosquitto_message_callback_set(mosq, on_message);
+}
+
+void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg){
+	string payload(static_cast<const char*>(msg->payload), msg->payloadlen);
+    string topic = string(msg->topic);
+    json data;
+
+    try{
+        data = json::parse(payload);
+    }catch(const exception &e){
+        cout << "[JSON] error: " << e.what() << endl; 
+        return;
+    }
+
+    if(topic == LIGHT_SENSOR_TOPIC){
+        light_intensity = data["Service"]["Intensity"].get<int>();
+        cout << "Light sensor: " << data["Service"]["Intensity"] << endl;
+    }else if(topic == HUMIDITY_SENSOR_TOPIC){
+        hummidity = data["Service"]["Humidity"].get<int>();
+        cout << "Humidity sensor: " << data["Service"]["Humidity"] << endl;
+    }else if(topic == VALVE_CONTROL_TOPIC){
+        string pos = data["Service"]["Position"].get<string>();
+        cout << "VALVE POSITION: " << data["Service"]["Position"] << endl;
+        if(pos == "OPEN")
+            is_valve_open = true;
+        else if(pos == "CLOSED")
+            is_valve_open = false;
+    }
+}
+
 
 int main(int argc, char* argv[]){
     signal(SIGINT, handleSignal);
@@ -44,7 +91,10 @@ int main(int argc, char* argv[]){
     ssdp->start();
 	mosquitto_lib_init();
     string mqtt_client_name = string(group + "_sensor");
+    VALVE_CONTROL_TOPIC = string("garden/" + group + "/valve_control");
+
 	mosq = mosquitto_new(mqtt_client_name.c_str(), true, NULL);
+    mosquitto_connect_callback_set(mosq, on_connect);
 
 	rc = mosquitto_connect(mosq, "localhost", 1883, mqtt_alive);
 	if(rc != 0){
@@ -58,11 +108,11 @@ int main(int argc, char* argv[]){
         unique_lock<mutex> ul(sleepMx);
         while (running)
         {
-            int humidity = generateHumidity();
-            cout << "Row humidity sensor reading: " << humidity << endl;
-            string msg = construct_msg(humidity);
+            int moisture = generateHumidity();
+            cout << "Row moisture sensor reading: " << moisture << endl;
+            string msg = construct_msg(moisture);
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), mqtt_QoS, false);
-            sleepCv.wait_for(ul, chrono::seconds(SLEEP_TIME));
+            sleepCv.wait_for(ul, chrono::seconds(REGULAR_SLEEP));
         }
     }
 
@@ -109,15 +159,21 @@ void parseDesc(const string &file_path){
 
     json desc = json::parse(file);
     file.close();
+    string humidity;
 
-    uuid = string("uuid:" + desc["uuid"].get<string>());
-    topic = desc["topic"];
-    group = desc["group"];
-    keep_alive = desc["keepAlive"];
+    try{
+        uuid = string("uuid:" + desc["uuid"].get<string>());
+        topic = desc["topic"];
+        group = desc["group"];
+        keep_alive = desc["keepAlive"];
 
-    json service = desc["Service"];
-    string humidity = service["Humidity"];
-    
+        json service = desc["Service"];
+        humidity = service["Humidity"];
+    }catch(const exception &e){
+        string err = string("[ERROR] Can not parse json description: ") + e.what();
+        throw runtime_error(err);
+    }
+
     size_t tilde = humidity.find('~');
     size_t pipe  = humidity.find('|');
 

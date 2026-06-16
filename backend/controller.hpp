@@ -52,8 +52,9 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 std::string generateActuatorMsg(std::string uuid, std::string position);
 void setup_callback();
 void parseAppData(json &data, struct mosquitto *mosq);
-std::string generateTopic(std::string uuid, std::string group);
+void publish_to_valve(std::string group, std::string msg, struct mosquitto *mosq);
 void print_loop();
 void control_loop(struct mosquitto *mosq);
+void publish_to_valve(std::string topic, std::string msg);
 
 #endif

@@ -105,18 +105,16 @@ int main(){
 	registered_topics.insert(APP_TOPIC_ALIVE);
 	mosquitto_loop_start(mosq);
 
-	string roof_msg = "OPEN";
-	string msg;
-
 	thread print_thread = thread(print_loop);
 	thread control_thread = thread(control_loop, mosq);
 
+	string roof_msg = "OPEN";
+	string msg;
 	char c;
 	while((c = getchar()) != 'q'){
 		if(c == 'r'){
 			string id = "uuid:1::row_actuator";
 			string group = "row1";
-			string top = generateTopic(id, group);
 			if(roof_msg == "OPEN"){
 				msg = generateActuatorMsg(id, "CLOSED");
 				roof_msg = "CLOSED";
@@ -126,7 +124,7 @@ int main(){
 				msg = generateActuatorMsg(id, "OPEN");
 			}
 			cout << "Sending message to actuator (" << id << "):  " << msg << "\n";
-			int ret = mosquitto_publish(mosq, NULL, top.c_str(), msg.size(), msg.c_str(), 0, false);
+			int ret = mosquitto_publish(mosq, NULL, "garden/row1/actuator/row_actuator/cmd", msg.size(), msg.c_str(), 0, false);
 		}
 	}
 
@@ -208,11 +206,13 @@ void parseAppData(json &data, struct mosquitto *mosq){
 
 		json serv = data["Service"];
 		// cout << "Service: " << serv.dump() << endl;
-
 		string msg = generateActuatorMsg(uuid, serv["Position"]);
-		string top = generateTopic(uuid, group);
 
-		int ret = mosquitto_publish(mosq, NULL, top.c_str(), msg.size(), msg.c_str(), 0, false);
+		if(uuid == "uuid:1::roof_actuator"){
+			int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);	
+		}else{
+			publish_to_valve(group, msg, mosq);
+		}
 	}else if(command_type == "GET"){
 		string uuid = data["uuid"];
 		string group = data["group"];
@@ -254,14 +254,6 @@ void parseAppData(json &data, struct mosquitto *mosq){
 	}
 }
 
-string generateTopic(string uuid, string group){
-	if(uuid == "uuid:1::roof_actuator"){
-		return ROOF_ACTUATOR_TOPIC_PUB;
-	}else{
-		return string("garden/" + group + "/actuator/row_actuator/cmd");
-	}
-}
-
 void control_loop(struct mosquitto *mosq){
 	unordered_map<string, json> deviceState_copy;
 	while(running){
@@ -293,9 +285,8 @@ void control_loop(struct mosquitto *mosq){
                     }
 
                     if(stop_watering){
-                        string top = generateTopic(control.actuator_uuid, control.group);
 						string msg = generateActuatorMsg(control.actuator_uuid, "CLOSED");
-						int ret = mosquitto_publish(mosq, NULL, top.c_str(), msg.size(), msg.c_str(), 0, false);
+						publish_to_valve(control.group, msg, mosq);
 
                         control.watering = false;
                         control.last_watering_end = now;
@@ -305,9 +296,8 @@ void control_loop(struct mosquitto *mosq){
                     bool can_water = pause_time >= control.min_pause;
 
                     if(moisture < control.min_moisture && can_water){
-						string top = generateTopic(control.actuator_uuid, control.group);
 						string msg = generateActuatorMsg(control.actuator_uuid, "OPEN");
-						int ret = mosquitto_publish(mosq, NULL, top.c_str(), msg.size(), msg.c_str(), 0, false);
+						publish_to_valve(control.group, msg, mosq);
 
                         control.watering = true;
                         control.watering_start = now;
@@ -337,7 +327,7 @@ void print_loop(){
 		}
 		cout << "======================================================================================\n";
 		{
-			unique_lock<mutex> ul(deviceState_mutex);
+			unique_lock<mutex> ul(rowControl_mutex);
 			for(auto &pair : row_control){
 				cout << pair.first << ": " << pair.second.watering << endl;
 			}
@@ -351,4 +341,12 @@ void print_loop(){
 			});
 		}
 	}
+}
+
+void publish_to_valve(string group, string msg, struct mosquitto *mosq){
+	string valve_topic = string("garden/" + group + "/actuator/row_actuator/cmd");
+	string sensor_control_topic = string("garden/" + group + "/valve_control");
+
+	mosquitto_publish(mosq, NULL, valve_topic.c_str(), msg.size(), msg.c_str(), 0, false);
+	mosquitto_publish(mosq, NULL, sensor_control_topic.c_str(), msg.size(), msg.c_str(), 0, false);
 }
