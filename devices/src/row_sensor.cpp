@@ -14,10 +14,12 @@ static string VALVE_CONTROL_TOPIC;
 static int max_humidity;
 static int min_humidity;
 static int keep_alive = 30;
+static int moisture = 50;
 
 // Control signals
-atomic<int> hummidity;
-atomic<int> light_intensity;
+atomic<int> humidity(100);
+atomic<int> light_intensity(0);
+atomic<int> temperature(0);
 atomic<bool> is_valve_open(false);
 
 void handleSignal(int){
@@ -32,6 +34,7 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc){
 	}
 	mosquitto_subscribe(mosq, NULL, VALVE_CONTROL_TOPIC.c_str(), mqtt_QoS);
     mosquitto_subscribe(mosq, NULL, LIGHT_SENSOR_TOPIC, mqtt_QoS);
+    mosquitto_subscribe(mosq, NULL, TEMPERATURE_SENSOR_TOPIC, mqtt_QoS);
     mosquitto_subscribe(mosq, NULL, HUMIDITY_SENSOR_TOPIC, mqtt_QoS);
 	mosquitto_message_callback_set(mosq, on_message);
 }
@@ -52,15 +55,23 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
         light_intensity = data["Service"]["Intensity"].get<int>();
         cout << "Light sensor: " << data["Service"]["Intensity"] << endl;
     }else if(topic == HUMIDITY_SENSOR_TOPIC){
-        hummidity = data["Service"]["Humidity"].get<int>();
+        humidity = data["Service"]["Humidity"].get<int>();
         cout << "Humidity sensor: " << data["Service"]["Humidity"] << endl;
+    }else if(topic == TEMPERATURE_SENSOR_TOPIC){
+        temperature = data["Service"]["Temperature"].get<int>();
+        cout << "Temperature sensor: " << data["Service"]["Temperature"] << endl;
     }else if(topic == VALVE_CONTROL_TOPIC){
         string pos = data["Service"]["Position"].get<string>();
         cout << "VALVE POSITION: " << data["Service"]["Position"] << endl;
-        if(pos == "OPEN")
+        sleepCv.notify_all();
+        if(pos == "OPEN"){
             is_valve_open = true;
-        else if(pos == "CLOSED")
+            cout << "[DEBUG] OPENING VALVE!!!!!!!!!!!!!\n";
+        }
+        else if(pos == "CLOSED"){
             is_valve_open = false;
+            cout << "[DEBUG] CLOSING VALVE!!!!!!!!!!!!!\n";
+        }
     }
 }
 
@@ -104,15 +115,21 @@ int main(int argc, char* argv[]){
 	}
     mosquitto_loop_start(mosq);
 
+    int sleep = 1;
     {
         unique_lock<mutex> ul(sleepMx);
         while (running)
         {
-            int moisture = generateHumidity();
+            if(is_valve_open.load()) sleep = WATERING_SLEEP;
+            else sleep = REGULAR_SLEEP;
+
+            updateMoisture(DT);
             cout << "Row moisture sensor reading: " << moisture << endl;
+
             string msg = construct_msg(moisture);
             int rc = mosquitto_publish(mosq, NULL, topic.c_str(), msg.size(), msg.c_str(), mqtt_QoS, false);
-            sleepCv.wait_for(ul, chrono::seconds(REGULAR_SLEEP));
+
+            sleepCv.wait_for(ul, chrono::seconds(sleep));
         }
     }
 
@@ -125,19 +142,24 @@ int main(int argc, char* argv[]){
 }
 
 
-int generateHumidity()
-{
+void updateMoisture(double dt){
     static random_device rd;
     static mt19937 gen(rd());
 
-    uniform_int_distribution<> dist(20.0, 70.0);
+    uniform_real_distribution<> noise(-0.3, 0.3);
 
-    int value = (int)round(dist(gen));
+    double evaporation = 0.0;
 
-    if (value < min_humidity) value = min_humidity;
-    if (value > max_humidity) value = max_humidity;
+    evaporation += temperature.load() * 0.003;
+    evaporation += light_intensity.load() * 0.002;
+    evaporation += (100 - humidity.load()) * 0.0015;
+    evaporation += noise(gen);
+    moisture -= (evaporation * dt) / 3;
 
-    return value;
+    if(is_valve_open.load()) moisture += 2 * dt;
+
+    if (moisture < min_humidity) moisture = min_humidity;
+    if (moisture > max_humidity) moisture = max_humidity;
 }
 
 

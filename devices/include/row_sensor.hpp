@@ -15,14 +15,16 @@ using json = nlohmann::json;
 // For simulation purposes
 static constexpr const char* LIGHT_SENSOR_TOPIC = "garden/global/sensor/light_sensor";
 static constexpr const char* HUMIDITY_SENSOR_TOPIC = "garden/global/sensor/humidity_sensor";
+static constexpr const char* TEMPERATURE_SENSOR_TOPIC = "garden/global/sensor/temperature_sensor";
 
-static constexpr int REGULAR_SLEEP = 30;
-static constexpr int WATERING_SLEEP = 30;
+static constexpr int REGULAR_SLEEP = 1;
+static constexpr int WATERING_SLEEP = 1;
+static constexpr double DT = 1;
 static constexpr int mqtt_QoS = 0;
 static constexpr int mqtt_alive = 120;
 
 void handleSignal(int);
-int generateHumidity();
+void updateMoisture(double dt);
 std::string construct_msg(int humidity);
 void parseDesc(const std::string &file_path);
 void on_connect(struct mosquitto *mosq, void *obj, int rc);

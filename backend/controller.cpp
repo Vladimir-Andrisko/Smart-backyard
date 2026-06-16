@@ -202,10 +202,10 @@ void parseAppData(json &data, struct mosquitto *mosq){
 	if(command_type == "SET"){
 		string uuid = data["uuid"];
 		string group = data["group"];
-		// cout << "[DEBUG] UUID: " << uuid << endl;
-
 		json serv = data["Service"];
-		// cout << "Service: " << serv.dump() << endl;
+
+		if(serv["State"] != "ON") return;
+
 		string msg = generateActuatorMsg(uuid, serv["Position"]);
 
 		if(uuid == "uuid:1::roof_actuator"){
@@ -223,11 +223,9 @@ void parseAppData(json &data, struct mosquitto *mosq){
 
 		if(!device_state.count(uuid)) return;
 		json device_info = device_state[uuid];
-
 		temp["Service"] = device_info;
 
 		string msg = temp.dump();
-		// cout << "[DEBUG] Response to GET: " << msg << endl;
 
 		int ret = mosquitto_publish(mosq, NULL, APP_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);
 	}else if(command_type == "SET.garden_rows"){
@@ -246,7 +244,7 @@ void parseAppData(json &data, struct mosquitto *mosq){
 				temp.max_moisture = value["max_moisture"];
 				temp.min_moisture = value["min_moisture"];
 				temp.min_pause = value["min_pause"];
-				temp.max_water = value["max_water"];
+				temp.max_water = value["max_water"].get<int>() * 60;
 
 				row_control[key] = temp;
 			}
@@ -264,13 +262,50 @@ void control_loop(struct mosquitto *mosq){
 
 		{
 			unique_lock<mutex> ul(rowControl_mutex);
+
+			if(deviceState_copy.find("uuid:1::light_sensor") != deviceState_copy.end() && deviceState_copy.find("uuid:1::roof_actuator") != deviceState_copy.end()){
+				if(deviceState_copy["uuid:1::light_sensor"]["State"] == "ON" && deviceState_copy["uuid:1::roof_actuator"]["State"] == "ON"){
+					int intentsity = deviceState_copy["uuid:1::light_sensor"]["Intensity"];
+					string current_pos = deviceState_copy["uuid:1::roof_actuator"]["Position"];
+
+					if(intentsity >= 70 && current_pos != "OPEN"){
+						string temp_msg = generateActuatorMsg("uuid:1::roof_actuator", "OPEN");
+						int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, temp_msg.size(), temp_msg.c_str(), 0, false);
+					}else if(current_pos != "CLOSED"){
+						string temp_msg = generateActuatorMsg("uuid:1::roof_actuator", "CLOSED");
+						int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, temp_msg.size(), temp_msg.c_str(), 0, false);
+					}
+				}
+			}
+
 			for(auto& [row, control] : row_control){
 				if(deviceState_copy.find(control.sensor_uuid) == deviceState_copy.end()){
                     continue;
                 }
+				if(deviceState_copy.find(control.actuator_uuid) == deviceState_copy.end()){
+                    continue;
+                }
+
+				if(deviceState_copy[control.actuator_uuid]["State"] != "ON" || deviceState_copy[control.sensor_uuid]["State"] != "ON"){
+					continue;
+				}
 
 				int moisture = deviceState_copy[control.sensor_uuid]["Humidity"];
+				string pos = deviceState_copy[control.actuator_uuid]["Position"];
+				bool previous = control.watering;
+
+				if(pos == "OPEN") control.watering = true;
+				else if(pos == "CLOSED") control.watering = false;
+
 				auto now = chrono::steady_clock::now();
+
+				if(!previous && control.watering){
+					control.watering_start = now;
+				}
+
+				if(previous && !control.watering){
+					control.last_watering_end = now;
+				}
 
 				if(control.watering){
                     auto watering_time = chrono::duration_cast<chrono::seconds>(now - control.watering_start).count();
@@ -287,9 +322,6 @@ void control_loop(struct mosquitto *mosq){
                     if(stop_watering){
 						string msg = generateActuatorMsg(control.actuator_uuid, "CLOSED");
 						publish_to_valve(control.group, msg, mosq);
-
-                        control.watering = false;
-                        control.last_watering_end = now;
                     }
                 }else{
                     auto pause_time = chrono::duration_cast<chrono::seconds>(now - control.last_watering_end).count();
@@ -298,9 +330,6 @@ void control_loop(struct mosquitto *mosq){
                     if(moisture < control.min_moisture && can_water){
 						string msg = generateActuatorMsg(control.actuator_uuid, "OPEN");
 						publish_to_valve(control.group, msg, mosq);
-
-                        control.watering = true;
-                        control.watering_start = now;
                     }
                 }
 			}
