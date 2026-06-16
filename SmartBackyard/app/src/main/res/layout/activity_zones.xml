@@ -77,25 +77,6 @@
                     android:layout_marginBottom="8dp"/>
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/label_water_level"
-                    android:textColor="#7F8C8D"
-                    android:textSize="13sp"
-                    android:textAllCaps="true"
-                    android:textStyle="bold" />
-
-                <ProgressBar
-                    android:id="@+id/pbWaterLevel"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="16dp"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="8dp"
-                    android:max="100"
-                    android:progress="100" />
-
-                <TextView
                     android:id="@+id/tvSoilType"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
