@@ -23,7 +23,9 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -57,6 +59,33 @@ class AnalyticsActivity : AppCompatActivity() {
 
     // Klasa koja čuva meta-podatke o istorijskim događajima ventila
     data class IstorijaZalivanja(val indeksTacke: Int, val trajanjeSekunde: Int, val pokretac: String)
+
+    private fun getPeriodRange(): Pair<Long, Long> {
+        val now = System.currentTimeMillis()
+
+        return when (trenutnoIzabraniPeriod) {
+            "24h" -> Pair(now - 24L * 60 * 60 * 1000, now)
+
+            "7d" -> Pair(now - 7L * 24 * 60 * 60 * 1000, now)
+
+            "30d" -> Pair(now - 30L * 24 * 60 * 60 * 1000, now)
+
+            "custom" -> {
+                try {
+                    val sdf = SimpleDateFormat("d.M.yyyy.", Locale.getDefault())
+
+                    val from = sdf.parse(datumOd)?.time ?: 0L
+                    val to = sdf.parse(datumDo)?.time ?: now
+
+                    Pair(from, to + 24L * 60 * 60 * 1000)
+                } catch (_: Exception) {
+                    Pair(0L, now)
+                }
+            }
+
+            else -> Pair(0L, now)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -181,30 +210,74 @@ class AnalyticsActivity : AppCompatActivity() {
     }
 
     private fun osveziGrafikonZaPeriodX() {
+
         chartPlaceholder.removeAllViews()
 
-        if (spinnerZone.selectedItem == null || listaRedova.isEmpty()) return
+        if (listaRedova.isEmpty()) return
+        if (spinnerZone.selectedItemPosition < 0) return
 
         val selektovaniRed = listaRedova[spinnerZone.selectedItemPosition]
-        val selektovanaZonaId = selektovaniRed.redId
 
         lifecycleScope.launch(Dispatchers.IO) {
+
             val kulture = baza.backyardDao().getAllKulture()
             val mapaKultura = kulture.associateBy { it.kulturaId }
+
             val kultura = mapaKultura[selektovaniRed.kulturaIdRef]
 
             val moistureMin = kultura?.moistureMin ?: 45f
             val moistureMax = kultura?.moistureMax ?: 75f
 
+            val (startTime, endTime) = getPeriodRange()
+
+            val vlagaOcitavanja =
+                baza.backyardDao().getOcitavanjaZaPeriodX(
+                    selektovaniRed.redId,
+                    "%",
+                    startTime,
+                    endTime
+                )
+
+            val temperaturaOcitavanja =
+                baza.backyardDao().getOcitavanjaZaPeriodX(
+                    selektovaniRed.redId,
+                    "temperature",
+                    startTime,
+                    endTime
+                )
+
+            val listaVlage =
+                vlagaOcitavanja.map { it.vrednost }
+
+            val listaTemp =
+                temperaturaOcitavanja.map { it.vrednost }
+
             withContext(Dispatchers.Main) {
-                if (selektovanaZonaId == 2 && (trenutnoIzabraniPeriod == "7d" || trenutnoIzabraniPeriod == "30d" || trenutnoIzabraniPeriod == "custom")) {
-                    panelNoDataState.visibility = View.VISIBLE
-                    tvNoDataDesc.text = getString(R.string.no_data_state_desc, "2 sata")
-                    prikaziOciscenGrafikon(moistureMin, moistureMax, emptyList(), emptyList(), emptyList())
-                } else {
-                    panelNoDataState.visibility = View.GONE
-                    prikaziOciscenGrafikon(moistureMin, moistureMax, emptyList(), emptyList(), emptyList())
+
+                panelNoDataState.visibility =
+                    if (listaVlage.isEmpty()) View.VISIBLE
+                    else View.GONE
+
+                if (listaVlage.isEmpty()) {
+                    tvNoDataDesc.text =
+                        getString(
+                            R.string.no_data_state_desc,
+                            when (trenutnoIzabraniPeriod) {
+                                "24h" -> "24 sata"
+                                "7d" -> "7 dana"
+                                "30d" -> "30 dana"
+                                else -> "izabrani period"
+                            }
+                        )
                 }
+
+                prikaziOciscenGrafikon(
+                    moistureMin = moistureMin,
+                    moistureMax = moistureMax,
+                    listaVlage = listaVlage,
+                    listaTemp = listaTemp,
+                    dogadjaji = emptyList()
+                )
             }
         }
     }

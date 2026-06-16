@@ -87,6 +87,23 @@ class ZonesActivity : AppCompatActivity() {
         }
     }
 
+    fun updateKrov() {
+        val db = AppDatabase.getInstance(this)
+        lifecycleScope.launch {
+            val roofStatus = db.globalStatusDao().getRoofStatus()
+
+            if (roofStatus == "UNINITIALIZED") {
+                withContext(Dispatchers.Main) {
+                    btnRoofAction.visibility = View.INVISIBLE
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                azurirajUIKrova()
+            }
+        }
+    }
+
     fun updateUI() {
         if (isUpdatingUI) return
         isUpdatingUI = true
@@ -97,18 +114,8 @@ class ZonesActivity : AppCompatActivity() {
             try {
                 ucitajIPrikazujRedove()
 
-                val roofStatus = db.globalStatusDao().getRoofStatus()
-
-                if (roofStatus == "UNINITIALIZED") {
-                    withContext(Dispatchers.Main) {
-                        btnRoofAction.visibility = View.INVISIBLE
-                    }
-                }
-
                 withContext(Dispatchers.Main) {
 
-                    azurirajUIKrova()
-                    //azurirajNivoVode(db.globalStatusDao().getWaterLevel())
                     azurirajUIZaSunce(db.globalStatusDao().getLuminosity())
                     azurirajUITemperatureVazduha(db.globalStatusDao().getAirTemperature())
                     azurirajGlobalnaVlaznostVazduha(db.globalStatusDao().getHumidity())
@@ -155,7 +162,7 @@ class ZonesActivity : AppCompatActivity() {
         azurirajGlobalnaVlaznostVazduha(0)
 
         // Učitaj tip zemljišta iz SharedPreferences
-        val prefs = getSharedPreferences("BastaPrefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("BastaPrefs", MODE_PRIVATE)
         val tipZemljista = prefs.getString("TIP_ZEMLJISTA", null)
         if (tipZemljista != null) {
             tvGlobalTemp.text = "Tip zemljišta: $tipZemljista"
@@ -187,12 +194,95 @@ class ZonesActivity : AppCompatActivity() {
                     return
                 }
 
-                val state = json.service["State"]
-                if (state != "ON") {
-                    Toast.makeText(this@ZonesActivity,
-                        "device ${json.uuid} is $state", Toast.LENGTH_SHORT).show()
-                    return
+                val state = json.service["State"] ?: return
+
+                val unreachable = state != "ON"
+
+                if (json.uuid == "uuid:1::roof_actuator") {
+                    try {
+                        if (unreachable) {
+                            lifecycleScope.launch {
+                                db.globalStatusDao().setRoofStatus("UNINITIALIZED")
+                                withContext(Dispatchers.Main) {
+                                    btnRoofAction.visibility = View.INVISIBLE
+                                }
+                            }
+                            return
+                        }
+
+                        lifecycleScope.launch {
+                            val str = json.service["Position"] as String
+                            isRoofOpened = str == "OPEN"
+
+                            db.globalStatusDao().setRoofStatus(str)
+                            addLog(
+                                AppDatabase.getInstance(this@ZonesActivity),
+                                "KROV",
+                                str
+                            )
+
+                            withContext(Dispatchers.Main) {
+                                btnRoofAction.visibility = View.VISIBLE
+                                updateKrov()
+                            }
+                        }
+                    }
+                    catch(_ : java.lang.ClassCastException) {}
                 }
+
+                val match_sensor = rowSensorRegex.matchEntire(json.uuid)
+                if (match_sensor != null) {
+                    try {
+                        val row = match_sensor.groupValues[1].toInt()
+                        if (unreachable) {
+                            setRowButtonEnabled(row, false)
+                            return
+                        }
+
+                        val humidity = json.service["Humidity"] as Int
+
+                        lifecycleScope.launch {
+                            db.backyardDao().setRedMoisture(row, humidity)
+                            db.backyardDao().insertOcitavanje(SenzorskoOcitavanjeEntity(0,
+                                System.currentTimeMillis(), row,
+                                json.service["Unit"] as String, humidity.toFloat()))
+                            addLog(
+                                AppDatabase.getInstance(this@ZonesActivity),
+                                "SENZOR",
+                                state.toString()
+                            )
+
+                            withContext(Dispatchers.Main) {
+                                updateUI()
+                            }
+                        }
+                    } catch(e : Exception) {
+                        Log.d("Test", e.toString())
+                    }
+                }
+
+                val match_actuator = rowActuatorRegex.matchEntire(json.uuid)
+                if (match_actuator != null) {
+                    val row = match_actuator.groupValues[1].toInt()
+                    if (unreachable) {
+                        setRowButtonEnabled(row, false)
+                        return
+                    }
+                    val position = json.service["Position"]
+
+                    lifecycleScope.launch {
+                        db.backyardDao().setRedStatus(row, position == "OPEN")
+
+                        withContext(Dispatchers.Main) {
+                            setRowButtonEnabled(row, true)
+                            updateUI()
+                        }
+                    }
+                }
+
+
+                if (unreachable)
+                    return
 
                 if (json.uuid == "uuid:1::humidity_sensor") {
                     try {
@@ -204,6 +294,10 @@ class ZonesActivity : AppCompatActivity() {
                                 "SENZOR",
                                 state.toString()
                             )
+
+                            withContext(Dispatchers.Main) {
+                                updateUI()
+                            }
                         }
                     }
                     catch(_ : java.lang.ClassCastException) {}
@@ -220,6 +314,10 @@ class ZonesActivity : AppCompatActivity() {
                                 "SENZOR",
                                 state.toString()
                             )
+
+                            withContext(Dispatchers.Main) {
+                                updateUI()
+                            }
                         }
                     }
                     catch(_ : java.lang.ClassCastException) {}
@@ -235,66 +333,13 @@ class ZonesActivity : AppCompatActivity() {
                                 "KROV",
                                 state.toString()
                             )
-                        }
-                    }
-                    catch(_ : java.lang.ClassCastException) {}
-                }
-
-                if (json.uuid == "uuid:1::roof_actuator") {
-                    try {
-                        lifecycleScope.launch {
-                            val str = json.service["Position"] as String
-                            isRoofOpened = str == "OPEN"
-
-                            db.globalStatusDao().setRoofStatus(str)
-                            addLog(
-                                AppDatabase.getInstance(this@ZonesActivity),
-                                "KROV",
-                                str
-                            )
 
                             withContext(Dispatchers.Main) {
-                                btnRoofAction.visibility = View.VISIBLE
                                 updateUI()
                             }
                         }
                     }
                     catch(_ : java.lang.ClassCastException) {}
-                }
-
-                val match_sensor = rowSensorRegex.matchEntire(json.uuid)
-                if (match_sensor != null) {
-                    try {
-                        val row = match_sensor.groupValues[1].toInt()
-                        val humidity = json.service["Humidity"] as Int
-
-                        lifecycleScope.launch {
-                            db.backyardDao().setRedMoisture(row, humidity)
-                            db.backyardDao().insertOcitavanje(SenzorskoOcitavanjeEntity(0,
-                                System.currentTimeMillis(), row, "%", humidity.toFloat()))
-                            addLog(
-                                AppDatabase.getInstance(this@ZonesActivity),
-                                "SENZOR",
-                                state.toString()
-                            )
-                        }
-                    } catch(e : Exception) {
-                        Log.d("Test", e.toString())
-                    }
-                }
-
-                val match_actuator = rowActuatorRegex.matchEntire(json.uuid)
-                if (match_actuator != null) {
-                    val row = match_actuator.groupValues[1].toInt()
-                    val position = json.service["Position"]
-
-                    lifecycleScope.launch {
-                        db.backyardDao().setRedStatus(row, position == "OPEN")
-
-                        withContext(Dispatchers.Main) {
-                            setRowButtonEnabled(row, true)
-                        }
-                    }
                 }
             }
 
@@ -329,18 +374,16 @@ class ZonesActivity : AppCompatActivity() {
                     )
                 )
                 val db = AppDatabase.getInstance(this@ZonesActivity)
-                for (i in db.backyardDao().getAllRedovi().indices) {
+                val redovi = db.backyardDao().getAllRedovi()
+                for (i in redovi) {
                     MQTTHandler.publish(
                         MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
-                            "uuid:${i + 1}::row_sensor", "row${i + 1}", MQTTHandler.valveQOS
+                            "uuid:${i.redId}::row_sensor", "row${i.redId}", MQTTHandler.valveQOS
                         )
                     )
-                }
-
-                for (i in db.backyardDao().getAllRedovi().indices) {
                     MQTTHandler.publish(
                         MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
-                            "uuid:${i + 1}::row_actuator", "row${i + 1}", MQTTHandler.valveQOS
+                            "uuid:${i.redId}::row_actuator", "row${i.redId}", MQTTHandler.valveQOS
                         )
                     )
                 }
