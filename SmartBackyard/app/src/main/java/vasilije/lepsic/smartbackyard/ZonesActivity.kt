@@ -1,13 +1,16 @@
 package vasilije.lepsic.smartbackyard
 
-import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
 import android.view.View
-import android.widget.*
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isEmpty
+import androidx.core.view.isNotEmpty
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -16,8 +19,6 @@ import kotlinx.coroutines.withContext
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
 import org.eclipse.paho.client.mqttv3.MqttCallback
 import org.eclipse.paho.client.mqttv3.MqttMessage
-import androidx.core.view.isEmpty
-import androidx.core.view.isNotEmpty
 
 class ZonesActivity : AppCompatActivity() {
 
@@ -36,7 +37,7 @@ class ZonesActivity : AppCompatActivity() {
     private var isRoofOpened = false
     private lateinit var tvAirTemperature: TextView
 
-    private val getRequestDelay : Long = 4000
+    private val getRequestDelay : Long = 1000
     private val rowSensorRegex = Regex("""uuid:(10|[1-9])::row_sensor""")
     private val rowActuatorRegex = Regex("""uuid:(10|[1-9])::row_actuator""")
 
@@ -188,7 +189,13 @@ class ZonesActivity : AppCompatActivity() {
                 if (topic == null || message == null)
                     return
 
-                val json = MQTTFactory.parseGetMessage(String(message.payload, Charsets.UTF_8))
+                val json_all = MQTTFactory.parseGetMessage(String(message.payload, Charsets.UTF_8)) as GetAllCommand?
+                if (json_all != null) {
+                    Log.d("JSON_ALL", json_all.toString())
+                    return
+                }
+
+                val json = MQTTFactory.parseGetMessage(String(message.payload, Charsets.UTF_8)) as GetCommand?
                 if (json == null) {
                     Log.d("MQTT", "GET callback failed")
                     return
@@ -353,7 +360,7 @@ class ZonesActivity : AppCompatActivity() {
                 if (isDestroyed || isFinishing)
                     break
 
-                MQTTHandler.publish(
+                /*MQTTHandler.publish(
                     MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
                         "uuid:1::roof_actuator", "global", MQTTHandler.roofQOS
                     )
@@ -372,10 +379,13 @@ class ZonesActivity : AppCompatActivity() {
                     MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
                         "uuid:1::light_sensor", "global", MQTTHandler.globalSensorQOS
                     )
+                )*/
+                MQTTHandler.publish(
+                    MQTTHandler.publishTopic, MQTTFactory.createGetAllMessage(MQTTHandler.globalSensorQOS)
                 )
                 val db = AppDatabase.getInstance(this@ZonesActivity)
                 val redovi = db.backyardDao().getAllRedovi()
-                for (i in redovi) {
+                /*for (i in redovi) {
                     MQTTHandler.publish(
                         MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
                             "uuid:${i.redId}::row_sensor", "row${i.redId}", MQTTHandler.valveQOS
@@ -386,7 +396,7 @@ class ZonesActivity : AppCompatActivity() {
                             "uuid:${i.redId}::row_actuator", "row${i.redId}", MQTTHandler.valveQOS
                         )
                     )
-                }
+                }*/
             }
         }
     }

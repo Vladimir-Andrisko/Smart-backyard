@@ -79,6 +79,7 @@ class ConfiguratorActivity : AppCompatActivity() {
                         .setItems(nazivi) { _, which ->
                             val odabrana = listaKultura[which]
                             tempRedovi.add(RedBasteEntity(
+                                tempRedovi.size + 1,
                                 nazivReda = "Red ${tempRedovi.size + 1}",
                                 kulturaIdRef = odabrana.kulturaId
                             ))
@@ -114,8 +115,9 @@ class ConfiguratorActivity : AppCompatActivity() {
                     if (it.kulturaIdRef != null) {
                         val kultura = baza.backyardDao().getKulturaById(it.kulturaIdRef)
                         if (kultura != null) {
-                            val id = baza.backyardDao().insertRedBaste(it)
-                            baza.backyardDao().insertRedStatus(RedBasteStatusEntity(0, id.toInt(), false, 5))
+                            baza.backyardDao().insertRedBaste(it)
+                            val id = it.redId
+                            baza.backyardDao().insertRedStatus(RedBasteStatusEntity(0, id, false, 5))
                             lst.add(
                                 RowCommandEntry(
                                     kultura.moistureMax,

@@ -17,13 +17,13 @@ import androidx.room.PrimaryKey
     ]
 )
 data class RedBasteEntity(
-    @PrimaryKey(autoGenerate = true)
+    @PrimaryKey
     @ColumnInfo(name = "red_id")
-    val redId: Int = 0,
+    val redId: Int,   // Assign manually (1-10)
 
     @ColumnInfo(name = "naziv_reda")
     var nazivReda: String,
 
     @ColumnInfo(name = "kultura_id_ref")
-    val kulturaIdRef: Int? // Ovo polje čuva ID kulture
+    val kulturaIdRef: Int?
 )

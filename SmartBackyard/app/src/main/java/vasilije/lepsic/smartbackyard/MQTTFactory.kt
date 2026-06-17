@@ -1,5 +1,6 @@
 package vasilije.lepsic.smartbackyard
 
+import android.util.Log
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import org.json.JSONObject
 
@@ -65,6 +66,15 @@ object MQTTFactory {
         return createMessage(json.toString(), qos)
     }
 
+    fun createGetAllMessage(
+        qos: Int
+    ): MqttMessage {
+        val json = JSONObject().apply {
+            put("command_type", "GET.all")
+        }
+        return createMessage(json.toString(), qos)
+    }
+
     fun createAliveMessage(
         uuid: String,
         qos: Int
@@ -94,15 +104,30 @@ object MQTTFactory {
     }
 
     // Parsiranje GET komande
-    fun parseGetMessage(payload: String): GetCommand? {
+    fun parseGetMessage(payload: String): Any? {
         return try {
             val json = JSONObject(payload)
-            val service = json.getJSONObject("Service")
-            GetCommand(
-                uuid = json.getString("uuid"),
-                group = json.getString("group"),
-                service = service.keys().asSequence().associateWith { service.get(it) }
-            )
+            val command_type = json.getString("command_type")
+            if (command_type != "GET.all") {
+                val service = json.getJSONObject("Service")
+                GetCommand(
+                    uuid = json.getString("uuid"),
+                    group = json.getString("group"),
+                    command_type = command_type,
+                    service = service.keys().asSequence().associateWith { service.get(it) }
+                )
+            }
+
+            val m : MutableMap<String, Any> = mutableMapOf()
+            for (key in json.keys()) {
+                if (key == "command_type")
+                    continue
+
+                val obj = json.getJSONObject(key)
+                m[key] = obj
+            }
+
+            GetAllCommand(uuid = m)
         } catch (_: org.json.JSONException) {
             null
         }
@@ -129,7 +154,12 @@ data class SetCommand(
 data class GetCommand(
     val uuid: String,
     val group: String,
+    val command_type: String,
     val service: Map<String, Any>
+)
+
+data class GetAllCommand(
+    val uuid: Map<String, Any>
 )
 
 data class RowCommandEntry(

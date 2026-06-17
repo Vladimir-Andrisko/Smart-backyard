@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RedBasteStatusEntity::class,
         GlobalStatusEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
