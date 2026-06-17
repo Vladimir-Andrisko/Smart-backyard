@@ -196,8 +196,8 @@ string generateActuatorMsg(string uuid, string position){
 
 void parseAppData(json &data, struct mosquitto *mosq){
 	string command_type = data["command_type"];
-	// cout << "[DEBUG] Command type: " << command_type << endl;
-	// cout << "[DEBUG] Got message: " << data.dump() << endl;
+	cout << "[DEBUG] Command type: " << command_type << endl;
+	cout << "[DEBUG] Got message: " << data.dump() << endl;
 
 	if(command_type == "SET"){
 		string uuid = data["uuid"];
@@ -218,6 +218,7 @@ void parseAppData(json &data, struct mosquitto *mosq){
 		string group = data["group"];
 
 		json temp;
+		temp["command_type"] = "GET";
 		temp["uuid"] = uuid;
 		temp["group"] = group;
 
@@ -249,6 +250,19 @@ void parseAppData(json &data, struct mosquitto *mosq){
 				row_control[key] = temp;
 			}
 		}
+	}else if(command_type == "GET.all"){
+		json response;
+		response["command_type"] = "GET.all";
+		{
+			unique_lock<mutex> ul(deviceState_mutex);
+
+			for(auto &[key, service] : device_state){
+				response[key] = service;
+			}
+		}
+		string msg = response.dump();
+		cout << "[DRBUG] VRACAM TI MIHAJLO: " << msg << endl;
+		int ret = mosquitto_publish(mosq, NULL, APP_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);
 	}
 }
 
@@ -346,7 +360,7 @@ void control_loop(struct mosquitto *mosq){
 
 void print_loop(){
 	while(running){
-		cout << "\033[2J\033[1;1H" << flush;
+		// cout << "\033[2J\033[1;1H" << flush;
 		cout << "======================================================================================\n";
 		{
 			unique_lock<mutex> ul(deviceState_mutex);
