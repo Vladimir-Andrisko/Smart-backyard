@@ -268,11 +268,11 @@ void control_loop(struct mosquitto *mosq){
 					int intentsity = deviceState_copy["uuid:1::light_sensor"]["Intensity"];
 					string current_pos = deviceState_copy["uuid:1::roof_actuator"]["Position"];
 
-					if(intentsity >= 70 && current_pos != "OPEN"){
-						string temp_msg = generateActuatorMsg("uuid:1::roof_actuator", "OPEN");
-						int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, temp_msg.size(), temp_msg.c_str(), 0, false);
-					}else if(current_pos != "CLOSED"){
+					if(intentsity >= 70 && current_pos != "CLOSED"){
 						string temp_msg = generateActuatorMsg("uuid:1::roof_actuator", "CLOSED");
+						int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, temp_msg.size(), temp_msg.c_str(), 0, false);
+					}else if(intentsity < 70 && current_pos != "OPEN"){
+						string temp_msg = generateActuatorMsg("uuid:1::roof_actuator", "OPEN");
 						int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, temp_msg.size(), temp_msg.c_str(), 0, false);
 					}
 				}
