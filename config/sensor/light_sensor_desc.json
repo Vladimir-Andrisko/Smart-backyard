@@ -2,8 +2,8 @@
     "uuid": "1::light_sensor",
     "group": "global",
     "topic": "garden/global/sensor/light_sensor",
-    "max_age": 60,
-    "keepAlive": 10,
+    "max_age": 45,
+    "keepAlive": 30,
 
     "Service" : {
         "State" : "ON/OFF/UNREACHABLE",

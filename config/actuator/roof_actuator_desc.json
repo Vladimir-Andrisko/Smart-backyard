@@ -2,8 +2,8 @@
     "uuid": "1::roof_actuator",
     "group": "global",
     "topic": "garden/global/actuator/roof_actuator",
-    "max_age": 150,
-    "keepAlive": 60,
+    "max_age": 45,
+    "keepAlive": 30,
 
     "Service":  {
         "State": "ON/OFF/UNREACHABLE",

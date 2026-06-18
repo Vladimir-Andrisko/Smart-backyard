@@ -53,24 +53,18 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 
     if(topic == LIGHT_SENSOR_TOPIC){
         light_intensity = data["Service"]["Intensity"].get<int>();
-        cout << "Light sensor: " << data["Service"]["Intensity"] << endl;
     }else if(topic == HUMIDITY_SENSOR_TOPIC){
         humidity = data["Service"]["Humidity"].get<int>();
-        cout << "Humidity sensor: " << data["Service"]["Humidity"] << endl;
     }else if(topic == TEMPERATURE_SENSOR_TOPIC){
         temperature = data["Service"]["Temperature"].get<int>();
-        cout << "Temperature sensor: " << data["Service"]["Temperature"] << endl;
     }else if(topic == VALVE_CONTROL_TOPIC){
         string pos = data["Service"]["Position"].get<string>();
-        cout << "VALVE POSITION: " << data["Service"]["Position"] << endl;
         sleepCv.notify_all();
         if(pos == "OPEN"){
             is_valve_open = true;
-            cout << "[DEBUG] OPENING VALVE!!!!!!!!!!!!!\n";
         }
         else if(pos == "CLOSED"){
             is_valve_open = false;
-            cout << "[DEBUG] CLOSING VALVE!!!!!!!!!!!!!\n";
         }
     }
 }
@@ -137,8 +131,8 @@ int main(int argc, char* argv[]){
 	mosquitto_destroy(mosq);
 	mosquitto_lib_cleanup();
 
-    //ssdp->stop();
-    //delete ssdp;
+    ssdp->stop();
+    delete ssdp;
 }
 
 

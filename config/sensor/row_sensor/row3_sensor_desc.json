@@ -2,8 +2,8 @@
     "uuid": "3::row_sensor",
     "group": "row3",
     "topic": "garden/row3/sensor/row_sensor",
-    "max_age": 60,
-    "keepAlive": 10,
+    "max_age": 30,
+    "keepAlive": 15,
 
     "Service" : {
         "State" : "ON/OFF/UNREACHABLE",

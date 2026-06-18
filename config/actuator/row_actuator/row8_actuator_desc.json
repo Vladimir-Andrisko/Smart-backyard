@@ -3,7 +3,7 @@
     "group": "row8",
     "topic": "garden/row8/actuator/row_actuator",
     "max_age": 60,
-    "keepAlive": 10,
+    "keepAlive": 30,
 
     "Service" : {
         "State" : "ON/OFF/UNREACHABLE",

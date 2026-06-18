@@ -2,8 +2,8 @@
     "uuid": "1::humidity_sensor",
     "group": "global",
     "topic": "garden/global/sensor/humidity_sensor",
-    "max_age": 60,
-    "keepAlive": 40,
+    "max_age": 45,
+    "keepAlive": 30,
 
     "Service" : {
         "State" : "ON/OFF/UNREACHABLE",

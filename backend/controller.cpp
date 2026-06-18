@@ -266,7 +266,6 @@ void parseAppData(json &data, struct mosquitto *mosq){
 
 	}else if(command_type == "SET.automatic"){
 		string enable = data["Control"];
-		cout << "[DEBUG] Got automatic control command: " << enable << endl;
 		if(enable == "ON") enable_automatic_control = true;
 		else if(enable == "OFF") enable_automatic_control = false;
 	}
