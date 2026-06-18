@@ -3,6 +3,7 @@
 using namespace std;
 SSDPController *ssdp = nullptr;
 atomic<bool> running = true;
+atomic<bool> enable_automatic_control(true);
 unordered_set<string> registered_topics;
 unordered_map<string, json> device_state;
 unordered_map<string, RowControl> row_control;
@@ -196,17 +197,17 @@ string generateActuatorMsg(string uuid, string position){
 
 void parseAppData(json &data, struct mosquitto *mosq){
 	string command_type = data["command_type"];
-	cout << "[DEBUG] Command type: " << command_type << endl;
-	cout << "[DEBUG] Got message: " << data.dump() << endl;
+	// cout << "[DEBUG] Command type: " << command_type << endl;
+	// cout << "[DEBUG] Got message: " << data.dump() << endl;
 
 	if(command_type == "SET"){
 		string uuid = data["uuid"];
 		string group = data["group"];
 		json serv = data["Service"];
 
-		if(serv["State"] != "ON") return;
-
 		string msg = generateActuatorMsg(uuid, serv["Position"]);
+
+		if(device_state[uuid]["State"] != "ON") return;
 
 		if(uuid == "uuid:1::roof_actuator"){
 			int ret = mosquitto_publish(mosq, NULL, ROOF_ACTUATOR_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);	
@@ -261,14 +262,23 @@ void parseAppData(json &data, struct mosquitto *mosq){
 			}
 		}
 		string msg = response.dump();
-		cout << "[DRBUG] VRACAM TI MIHAJLO: " << msg << endl;
 		int ret = mosquitto_publish(mosq, NULL, APP_TOPIC_PUB, msg.size(), msg.c_str(), 0, false);
+
+	}else if(command_type == "SET.automatic"){
+		string enable = data["Control"];
+		cout << "[DEBUG] Got automatic control command: " << enable << endl;
+		if(enable == "ON") enable_automatic_control = true;
+		else if(enable == "OFF") enable_automatic_control = false;
 	}
 }
 
 void control_loop(struct mosquitto *mosq){
 	unordered_map<string, json> deviceState_copy;
 	while(running){
+		if(!enable_automatic_control){
+			continue;
+		}
+
 		{
 			unique_lock<mutex> ul(deviceState_mutex);
 			deviceState_copy = device_state;
@@ -359,7 +369,13 @@ void control_loop(struct mosquitto *mosq){
 
 void print_loop(){
 	while(running){
-		// cout << "\033[2J\033[1;1H" << flush;
+		cout << "\033[2J\033[1;1H" << flush;
+		if(enable_automatic_control){
+			cout << "AUTOMATIC CONTROL: ON\n";
+		}else{
+			cout << "AUTOMATIC CONTROL: OFF\n"; 
+		}
+
 		cout << "======================================================================================\n";
 		{
 			unique_lock<mutex> ul(deviceState_mutex);
@@ -371,7 +387,11 @@ void print_loop(){
 		{
 			unique_lock<mutex> ul(rowControl_mutex);
 			for(auto &pair : row_control){
-				cout << pair.first << ": " << pair.second.watering << endl;
+				if(pair.second.watering){
+					cout << pair.first << ": " << "Valve OPEN" << endl;
+				}else{
+					cout << pair.first << ": " << "Valve CLOSED" << endl;
+				}
 			}
 		}
 		cout << "======================================================================================\n\n";

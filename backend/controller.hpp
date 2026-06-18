@@ -29,7 +29,7 @@ static constexpr const char* APP_TOPIC_PUB = "garden/app/app";
 static constexpr const char* APP_TOPIC_ALIVE = "garden/app/alive";
 
 static constexpr int CONTROL_REFRESH_RATE = 500;
-static constexpr int PRINT_REFRESH_RATE = 2000;
+static constexpr int PRINT_REFRESH_RATE = 500;
 
 struct RowControl{
     std::string sensor_uuid;
