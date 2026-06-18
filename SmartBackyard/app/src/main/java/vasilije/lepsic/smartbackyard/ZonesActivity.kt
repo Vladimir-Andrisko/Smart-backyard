@@ -39,8 +39,8 @@ class ZonesActivity : AppCompatActivity() {
     private lateinit var tvAirTemperature: TextView
 
     private val getRequestDelay : Long = 1000
-    private val rowSensorRegex = Regex("""uuid:(10|[1-9])::row_sensor""")
-    private val rowActuatorRegex = Regex("""uuid:(10|[1-9])::row_actuator""")
+    private val rowSensorRegex = Regex("""uuid:(\d+)::row_sensor""")
+    private val rowActuatorRegex = Regex("""uuid:(\d+)::row_actuator""")
 
     private lateinit var btnAutomaticControl : Button
     private var automaticControl = true

@@ -19,7 +19,7 @@ import androidx.room.PrimaryKey
 data class RedBasteEntity(
     @PrimaryKey
     @ColumnInfo(name = "red_id")
-    val redId: Int,   // Assign manually (1-10)
+    var redId: Int,   // Assign manually (1-10)
 
     @ColumnInfo(name = "naziv_reda")
     var nazivReda: String,

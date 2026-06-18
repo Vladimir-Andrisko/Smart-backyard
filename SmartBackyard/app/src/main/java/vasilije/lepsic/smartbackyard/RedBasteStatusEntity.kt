@@ -11,7 +11,7 @@ import androidx.room.PrimaryKey
             entity = RedBasteEntity::class,
             parentColumns = ["red_id"],
             childColumns = ["red_id_ref"],
-            onDelete = ForeignKey.SET_NULL
+            onDelete = ForeignKey.CASCADE
         )
     ]
 )

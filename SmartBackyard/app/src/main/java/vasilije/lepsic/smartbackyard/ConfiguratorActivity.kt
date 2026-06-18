@@ -112,14 +112,15 @@ class ConfiguratorActivity : AppCompatActivity() {
                 val lst : MutableList<RowCommandEntry> = mutableListOf()
                 baza.backyardDao().deleteAllRedoviStatus()
                 baza.backyardDao().deleteAllRedovi()
-                tempRedovi.forEach {
+                /*tempRedovi.forEach {
                     if (it.kulturaIdRef != null) {
                         val kultura = baza.backyardDao().getKulturaById(it.kulturaIdRef)
                         if (kultura != null) {
                             baza.backyardDao().insertRedBaste(it)
                             val id = it.redId
-                            Log.d("TEST", "inserting status for id=$id")
-                            baza.backyardDao().insertRedStatus(RedBasteStatusEntity(0, id, false, 5))
+                            val status = RedBasteStatusEntity(0, id, false, 5)
+                            Log.d("TEST", status.toString())
+                            baza.backyardDao().insertRedStatus(status)
                             lst.add(
                                 RowCommandEntry(
                                     kultura.moistureMax,
@@ -130,9 +131,36 @@ class ConfiguratorActivity : AppCompatActivity() {
                             )
                         }
                     }
+                }*/
+                tempRedovi.forEachIndexed { index, red ->
+
+                    val fixedRed = red.copy(
+                        redId = index + 1,
+                        nazivReda = "Red ${index + 1}"
+                    )
+
+                    if (fixedRed.kulturaIdRef != null) {
+                        val kultura = baza.backyardDao()
+                            .getKulturaById(fixedRed.kulturaIdRef)
+
+                        if (kultura != null) {
+                            baza.backyardDao().insertRedBaste(fixedRed)
+
+                            baza.backyardDao().insertRedStatus(
+                                RedBasteStatusEntity(
+                                    redIDRef = fixedRed.redId,
+                                    open = false,
+                                    soilMoisture = 5
+                                )
+                            )
+                        }
+                    }
                 }
 
                 MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetRowsMessage(lst))
+
+                val rows = baza.backyardDao().getAllRedovi()
+                Log.d("ROWS_DB", rows.joinToString { it.redId.toString() })
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@ConfiguratorActivity, "Redovi sačuvani!", Toast.LENGTH_SHORT).show()
@@ -151,7 +179,15 @@ class ConfiguratorActivity : AppCompatActivity() {
             tempRedovi.clear()
             tempRedovi.addAll(redoviIzBaze)
             adapter = RedBasteAdapter(tempRedovi, mapaKultura) { red ->
+                /*tempRedovi.remove(red)
+                adapter.notifyDataSetChanged()*/
                 tempRedovi.remove(red)
+
+                tempRedovi.forEachIndexed { index, item ->
+                    item.redId = index + 1
+                    item.nazivReda = "Red ${index + 1}"
+                }
+
                 adapter.notifyDataSetChanged()
             }
             findViewById<RecyclerView>(R.id.rvRedovi).adapter = adapter
