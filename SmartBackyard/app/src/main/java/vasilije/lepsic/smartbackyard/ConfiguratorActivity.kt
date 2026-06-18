@@ -170,6 +170,7 @@ class ConfiguratorActivity : AppCompatActivity() {
 
                 val rows = baza.backyardDao().getAllRedovi()
                 Log.d("ROWS_DB", rows.joinToString { it.redId.toString() })
+                baza.logDao().obrisiSveLogove()
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@ConfiguratorActivity, "Redovi sačuvani!", Toast.LENGTH_SHORT).show()

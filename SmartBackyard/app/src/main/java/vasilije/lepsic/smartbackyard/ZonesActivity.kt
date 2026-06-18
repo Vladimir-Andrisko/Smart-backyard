@@ -214,6 +214,12 @@ class ZonesActivity : AppCompatActivity() {
                                         withContext(Dispatchers.Main) {
                                             btnRoofAction.visibility = View.INVISIBLE
                                         }
+
+                                        addLog(
+                                            AppDatabase.getInstance(this@ZonesActivity),
+                                            "KROV",
+                                            state.toString()
+                                        )
                                     }
                                     continue
                                 }
@@ -239,16 +245,24 @@ class ZonesActivity : AppCompatActivity() {
                         }
                         else if (uuid_entry.key == "uuid:1::humidity_sensor") {
                             try {
-                                if (state == null || state != "ON")
+                                if (state == null || state != "ON") {
+                                    lifecycleScope.launch {
+                                        addLog(
+                                            AppDatabase.getInstance(this@ZonesActivity),
+                                            "VLAGA",
+                                            state.toString()
+                                        )
+                                    }
                                     continue
+                                }
 
                                 val humidity = obj["Humidity"] as Int
                                 lifecycleScope.launch {
                                     db.globalStatusDao().setHumidity(humidity)
                                     addLog(
                                         AppDatabase.getInstance(this@ZonesActivity),
-                                        "SENZOR",
-                                        state.toString()
+                                        "VLAGA",
+                                        humidity.toString()
                                     )
                                 }
                             }
@@ -256,8 +270,16 @@ class ZonesActivity : AppCompatActivity() {
                         }
                         else if (uuid_entry.key == "uuid:1::temperature_sensor") {
                             try {
-                                if (state == null || state != "ON")
+                                if (state == null || state != "ON") {
+                                    lifecycleScope.launch {
+                                        addLog(
+                                            AppDatabase.getInstance(this@ZonesActivity),
+                                            "TEMPERATURA",
+                                            state.toString()
+                                        )
+                                    }
                                     continue
+                                }
 
                                 val temperature = obj["Temperature"] as Int
                                 lifecycleScope.launch {
@@ -265,8 +287,8 @@ class ZonesActivity : AppCompatActivity() {
                                         .setAirTemperature(temperature)
                                     addLog(
                                         AppDatabase.getInstance(this@ZonesActivity),
-                                        "SENZOR",
-                                        state.toString()
+                                        "TEMPERATURA",
+                                        temperature.toString()
                                     )
                                 }
                             }
@@ -274,16 +296,24 @@ class ZonesActivity : AppCompatActivity() {
                         }
                         else if (uuid_entry.key == "uuid:1::light_sensor") {
                             try {
-                                if (state == null || state != "ON")
+                                if (state == null || state != "ON") {
+                                    lifecycleScope.launch {
+                                        addLog(
+                                            AppDatabase.getInstance(this@ZonesActivity),
+                                            "SVETLO",
+                                            state.toString()
+                                        )
+                                    }
                                     continue
+                                }
 
                                 val luminosity = obj["Intensity"] as Int
                                 lifecycleScope.launch {
                                     db.globalStatusDao().setLuminosity(luminosity)
                                     addLog(
                                         AppDatabase.getInstance(this@ZonesActivity),
-                                        "KROV",
-                                        state.toString()
+                                        "SVETLO",
+                                        luminosity.toString()
                                     )
                                 }
                             }
@@ -293,6 +323,13 @@ class ZonesActivity : AppCompatActivity() {
                                 val row = match_sensor.groupValues[1].toInt()
                                 if (unreachable) {
                                     setRowButtonEnabled(row, false)
+                                    lifecycleScope.launch {
+                                        addLog(
+                                            AppDatabase.getInstance(this@ZonesActivity),
+                                            "SENZOR $row",
+                                            state.toString()
+                                        )
+                                    }
                                     continue
                                 }
 
@@ -308,8 +345,8 @@ class ZonesActivity : AppCompatActivity() {
                                     }
                                     addLog(
                                         AppDatabase.getInstance(this@ZonesActivity),
-                                        "SENZOR",
-                                        state.toString()
+                                        "SENZOR $row",
+                                        humidity.toString()
                                     )
                                 }
                             } catch(e : Exception) {
@@ -319,12 +356,24 @@ class ZonesActivity : AppCompatActivity() {
                             val row = match_actuator.groupValues[1].toInt()
                             if (unreachable) {
                                 setRowButtonEnabled(row, false)
+                                lifecycleScope.launch {
+                                    addLog(
+                                        AppDatabase.getInstance(this@ZonesActivity),
+                                        "AKTUATOR $row",
+                                        state.toString()
+                                    )
+                                }
                                 continue
                             }
                             val position = obj["Position"]
 
                             lifecycleScope.launch {
                                 db.backyardDao().setRedStatus(row, position == "OPEN")
+                                addLog(
+                                    AppDatabase.getInstance(this@ZonesActivity),
+                                    "AKTUATOR $row",
+                                    position.toString()
+                                )
 
                                 withContext(Dispatchers.Main) {
                                     setRowButtonEnabled(row, true)
