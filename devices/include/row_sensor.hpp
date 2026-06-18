@@ -20,7 +20,7 @@ static constexpr const char* TEMPERATURE_SENSOR_TOPIC = "garden/global/sensor/te
 static constexpr int REGULAR_SLEEP = 1;
 static constexpr int WATERING_SLEEP = 1;
 static constexpr double DT = 1;
-static constexpr int mqtt_QoS = 0;
+static constexpr int mqtt_QoS = 1;
 static constexpr int mqtt_alive = 120;
 
 void handleSignal(int);

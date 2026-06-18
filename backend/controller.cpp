@@ -299,7 +299,6 @@ void control_loop(struct mosquitto *mosq){
 				if(deviceState_copy.find(control.actuator_uuid) == deviceState_copy.end()){
                     continue;
                 }
-
 				if(deviceState_copy[control.actuator_uuid]["State"] != "ON" || deviceState_copy[control.sensor_uuid]["State"] != "ON"){
 					continue;
 				}

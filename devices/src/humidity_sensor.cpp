@@ -72,20 +72,30 @@ int main(int argc, char* argv[]){
 }
 
 
-int generateHumidity()
-{
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
+int generateHumidity(){
+    static random_device rd;
+    static mt19937 gen(rd());
+    static normal_distribution<> noise(0.0, 2.0);
 
-    std::normal_distribution<> dist(50.0, 15.0);
+    auto now = chrono::system_clock::now();
+    time_t t = chrono::system_clock::to_time_t(now);
+    tm local = *localtime(&t);
 
-    int value = (int)std::round(dist(gen));
+    int hour = local.tm_hour;
+    double x = hour / 24.0;
 
-    if (value < min_humidity) value = min_humidity;
-    if (value > max_humidity) value = max_humidity;
+    double base = (1.0 + sin(2.0 * M_PI * (x - 0.875))) / 2.0;
+    double humidity = min_humidity + base * (max_humidity - min_humidity);
 
-    return value;
+
+    humidity += noise(gen);
+
+    if (humidity < min_humidity) humidity = min_humidity;
+    if (humidity > max_humidity) humidity = max_humidity;
+
+    return static_cast<int>(round(humidity));
 }
+
 
 
 std::string construct_msg(int humidity){

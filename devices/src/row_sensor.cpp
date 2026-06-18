@@ -137,8 +137,8 @@ int main(int argc, char* argv[]){
 	mosquitto_destroy(mosq);
 	mosquitto_lib_cleanup();
 
-    ssdp->stop();
-    delete ssdp;
+    //ssdp->stop();
+    //delete ssdp;
 }
 
 
