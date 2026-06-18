@@ -27,6 +27,8 @@ object MQTTHandler {
         return try {
             mqttClient = MqttClient("tcp://$ipAddress:1883", getClientId(), persistence)
             getOptions().isCleanSession = true
+            getOptions().isAutomaticReconnect = false
+            getOptions().connectionTimeout = 1
             mqttClient!!.connect(options)
             subscribe(subscribeTopic)
             true
