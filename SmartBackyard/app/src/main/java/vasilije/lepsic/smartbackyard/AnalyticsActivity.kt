@@ -64,7 +64,7 @@ class AnalyticsActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
 
         return when (trenutnoIzabraniPeriod) {
-            "24h" -> Pair(now - 60L * 1000, now)
+            "24h" -> Pair(now - 60L * 3 * 1000, now)
 
             "7d" -> Pair(now - 7L * 60 * 1000, now)
 

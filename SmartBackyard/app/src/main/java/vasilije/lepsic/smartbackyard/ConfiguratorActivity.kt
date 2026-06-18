@@ -98,6 +98,11 @@ class ConfiguratorActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            if (tempRedovi.isEmpty()) {
+                Toast.makeText(this@ConfiguratorActivity, "Ne mozete poslati praznu konfiguraciju", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             val odabranoZemljiste = if (spinnerZemljiste.visibility == View.VISIBLE) {
                 spinnerZemljiste.selectedItem?.toString()
             } else {
@@ -112,26 +117,6 @@ class ConfiguratorActivity : AppCompatActivity() {
                 val lst : MutableList<RowCommandEntry> = mutableListOf()
                 baza.backyardDao().deleteAllRedoviStatus()
                 baza.backyardDao().deleteAllRedovi()
-                /*tempRedovi.forEach {
-                    if (it.kulturaIdRef != null) {
-                        val kultura = baza.backyardDao().getKulturaById(it.kulturaIdRef)
-                        if (kultura != null) {
-                            baza.backyardDao().insertRedBaste(it)
-                            val id = it.redId
-                            val status = RedBasteStatusEntity(0, id, false, 5)
-                            Log.d("TEST", status.toString())
-                            baza.backyardDao().insertRedStatus(status)
-                            lst.add(
-                                RowCommandEntry(
-                                    kultura.moistureMax,
-                                    kultura.moistureMin,
-                                    kultura.maxWateringDuration,
-                                    kultura.restingPeriod
-                                )
-                            )
-                        }
-                    }
-                }*/
                 tempRedovi.forEachIndexed { index, red ->
 
                     val fixedRed = red.copy(

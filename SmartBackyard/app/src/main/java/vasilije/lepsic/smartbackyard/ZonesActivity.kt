@@ -198,14 +198,12 @@ class ZonesActivity : AppCompatActivity() {
 
                 val json_all = MQTTFactory.parseGetMessage(String(message.payload, Charsets.UTF_8)) as GetAllCommand?
                 if (json_all != null) {
-                    Log.d("JSON_ALL", json_all.toString())
                     for (uuid_entry in json_all.uuid) {
                         val obj = uuid_entry.value as JSONObject
                         val state = obj["State"] ?: null
                         val unreachable = state == null || state != "ON"
                         val match_sensor = rowSensorRegex.matchEntire(uuid_entry.key)
                         val match_actuator = rowActuatorRegex.matchEntire(uuid_entry.key)
-                        Log.d("TEST", uuid_entry.key)
                         if (uuid_entry.key == "uuid:1::roof_actuator") {
                             try {
                                 if (unreachable) {
