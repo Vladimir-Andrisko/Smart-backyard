@@ -68,6 +68,15 @@ class ZonesActivity : AppCompatActivity() {
     }
 
     fun azurirajUITemperatureVazduha(temp: Int) {
+        if (temp == -999) {
+            tvAirTemperature.text = "OFF"
+            return
+        }
+
+        if (temp == -9999) {
+            tvAirTemperature.text = "UNREACHABLE"
+            return
+        }
         tvAirTemperature.text = getString(R.string.degree_format, temp)
         tvAirTemperature.setTextColor(
             getColor(
@@ -210,7 +219,10 @@ class ZonesActivity : AppCompatActivity() {
                                     lifecycleScope.launch {
                                         db.globalStatusDao().setRoofStatus("UNINITIALIZED")
                                         withContext(Dispatchers.Main) {
-                                            btnRoofAction.visibility = View.INVISIBLE
+                                            btnRoofAction.isEnabled = false
+                                            btnRoofAction.alpha = 0.5F
+                                            btnRoofAction.text = state?.toString() ?: "UNREACHABLE"
+                                            tvRoofStatus.text = state?.toString() ?: "UNREACHABLE"
                                         }
 
                                         addLog(
@@ -245,6 +257,7 @@ class ZonesActivity : AppCompatActivity() {
                             try {
                                 if (state == null || state != "ON") {
                                     lifecycleScope.launch {
+                                        db.globalStatusDao().setHumidity(if (state == null || state == "UNREACHABLE") -2 else -1)
                                         addLog(
                                             AppDatabase.getInstance(this@ZonesActivity),
                                             "VLAGA",
@@ -270,6 +283,7 @@ class ZonesActivity : AppCompatActivity() {
                             try {
                                 if (state == null || state != "ON") {
                                     lifecycleScope.launch {
+                                        db.globalStatusDao().setAirTemperature(if (state == null || state == "UNREACHABLE") -9999 else -999)
                                         addLog(
                                             AppDatabase.getInstance(this@ZonesActivity),
                                             "TEMPERATURA",
@@ -296,6 +310,8 @@ class ZonesActivity : AppCompatActivity() {
                             try {
                                 if (state == null || state != "ON") {
                                     lifecycleScope.launch {
+                                        AppDatabase.getInstance(this@ZonesActivity).globalStatusDao().setLuminosity(
+                                            if (state == null || state == "UNREACHABLE") -2 else -1)
                                         addLog(
                                             AppDatabase.getInstance(this@ZonesActivity),
                                             "SVETLO",
@@ -320,8 +336,8 @@ class ZonesActivity : AppCompatActivity() {
                             try {
                                 val row = match_sensor.groupValues[1].toInt()
                                 if (unreachable) {
-                                    setRowButtonEnabled(row, false)
                                     lifecycleScope.launch {
+                                        db.backyardDao().setRedMoisture(row, if (state == null || state == "UNREACHABLE") -2 else -1)
                                         addLog(
                                             AppDatabase.getInstance(this@ZonesActivity),
                                             "SENZOR $row",
@@ -353,8 +369,8 @@ class ZonesActivity : AppCompatActivity() {
                         } else if (match_actuator != null) {
                             val row = match_actuator.groupValues[1].toInt()
                             if (unreachable) {
-                                setRowButtonEnabled(row, false)
                                 lifecycleScope.launch {
+                                    db.backyardDao().setRedMoisture(row, if (state == null || state == "UNREACHABLE") -2 else -1)
                                     addLog(
                                         AppDatabase.getInstance(this@ZonesActivity),
                                         "AKTUATOR $row",
@@ -554,44 +570,10 @@ class ZonesActivity : AppCompatActivity() {
                 delay(getRequestDelay)
                 if (isDestroyed || isFinishing)
                     break
-
-                /*MQTTHandler.publish(
-                    MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
-                        "uuid:1::roof_actuator", "global", MQTTHandler.roofQOS
-                    )
-                )
-                MQTTHandler.publish(
-                    MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
-                        "uuid:1::humidity_sensor", "global", MQTTHandler.globalSensorQOS
-                    )
-                )
-                MQTTHandler.publish(
-                    MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
-                        "uuid:1::temperature_sensor", "global", MQTTHandler.globalSensorQOS
-                    )
-                )
-                MQTTHandler.publish(
-                    MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
-                        "uuid:1::light_sensor", "global", MQTTHandler.globalSensorQOS
-                    )
-                )*/
                 MQTTHandler.publish(
                     MQTTHandler.publishTopic, MQTTFactory.createGetAllMessage(MQTTHandler.globalSensorQOS)
                 )
                 val db = AppDatabase.getInstance(this@ZonesActivity)
-                val redovi = db.backyardDao().getAllRedovi()
-                /*for (i in redovi) {
-                    MQTTHandler.publish(
-                        MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
-                            "uuid:${i.redId}::row_sensor", "row${i.redId}", MQTTHandler.valveQOS
-                        )
-                    )
-                    MQTTHandler.publish(
-                        MQTTHandler.publishTopic, MQTTFactory.createGetMessage(
-                            "uuid:${i.redId}::row_actuator", "row${i.redId}", MQTTHandler.valveQOS
-                        )
-                    )
-                }*/
             }
         }
     }
@@ -656,8 +638,26 @@ class ZonesActivity : AppCompatActivity() {
                         val kartica = kreirajKarticu(red, kultura, open, vlaga)
                         containerRows.addView(kartica)
                     } else {
-                        primeniStatusVentila(red.redId, open)
-                        azurirajVlaguZemljistaNaKartici(red.redId, vlaga)
+                        lifecycleScope.launch {
+                            val db = AppDatabase.getInstance(this@ZonesActivity)
+                            val kartica = karticeMap[red.redId]
+                            val status = db.backyardDao().getRedStatusByRedId(red.redId)
+                            if (kartica != null && status != null && status.soilMoisture == -2)
+                            {
+                                withContext(Dispatchers.Main) {
+                                    kartica.tvStatus.text = "UNREACHABLE"
+                                }
+                            }
+                            else if (kartica != null && status != null && status.soilMoisture == -1) {
+                                withContext(Dispatchers.Main) {
+                                    kartica.tvStatus.text = "OFF"
+                                }
+                            }
+                            else {
+                                primeniStatusVentila(red.redId, open)
+                                azurirajVlaguZemljistaNaKartici(red.redId, vlaga)
+                            }
+                        }
                     }
                 }
             }
@@ -807,7 +807,12 @@ class ZonesActivity : AppCompatActivity() {
     // -------------------------------------------------------------------------
 
     fun azurirajGlobalnaVlaznostVazduha(procenat: Int) {
-        tvGlobalHumidity.text = "Vlažnost vazduha: $procenat%"
+        if (procenat == -2)
+            tvGlobalHumidity.text = "Vlažnost vazduha: UNREACHABLE"
+        else if (procenat == -1)
+            tvGlobalHumidity.text = "Vlažnost vazduha: OFF"
+        else
+            tvGlobalHumidity.text = "Vlažnost vazduha: $procenat%"
     }
 
     /**
@@ -833,16 +838,35 @@ class ZonesActivity : AppCompatActivity() {
      */
     private fun primeniStatusVentila(redId: Int, zalivanjAktivno: Boolean) {
         val kartica = karticeMap[redId] ?: return
-        if (zalivanjAktivno) {
-            kartica.tvStatus.text = "● AKTIVNO"
-            kartica.tvStatus.setTextColor(Color.parseColor("#2ECC71"))
-            kartica.btnZalij.text = "PRESTANI"
-            kartica.btnZalij.setBackgroundColor(Color.parseColor("#E74C3C"))
-        } else {
-            kartica.tvStatus.text = "● ZATVOREN"
-            kartica.tvStatus.setTextColor(Color.parseColor("#E74C3C"))
-            kartica.btnZalij.text = "ZALIJ"
-            kartica.btnZalij.setBackgroundColor(Color.parseColor("#3498DB"))
+        lifecycleScope.launch {
+            val db = AppDatabase.getInstance(this@ZonesActivity)
+            val status = db.backyardDao().getRedStatusByRedId(redId)
+            withContext(Dispatchers.Main) {
+                if (status != null && status.soilMoisture == -2) {
+                    kartica.tvStatus.text = "UNREACHABLE"
+                    kartica.btnZalij.text = "UNREACHABLE"
+                    kartica.tvVlaga.text = "UNREACHABLE"
+                    kartica.btnZalij.isEnabled = false
+                    return@withContext
+                }
+                else if (status != null && status.soilMoisture == -1) {
+                    kartica.tvStatus.text = "OFF"
+                    kartica.btnZalij.text = "OFF"
+                    kartica.tvVlaga.text = "OFF"
+                    return@withContext
+                }
+                if (zalivanjAktivno) {
+                    kartica.tvStatus.text = "● AKTIVNO"
+                    kartica.tvStatus.setTextColor(Color.parseColor("#2ECC71"))
+                    kartica.btnZalij.text = "PRESTANI"
+                    kartica.btnZalij.setBackgroundColor(Color.parseColor("#E74C3C"))
+                } else {
+                    kartica.tvStatus.text = "● ZATVOREN"
+                    kartica.tvStatus.setTextColor(Color.parseColor("#E74C3C"))
+                    kartica.btnZalij.text = "ZALIJ"
+                    kartica.btnZalij.setBackgroundColor(Color.parseColor("#3498DB"))
+                }
+            }
         }
     }
 
@@ -861,6 +885,16 @@ class ZonesActivity : AppCompatActivity() {
     }
 
     private fun azurirajUIZaSunce(procenat: Int) {
+        if (procenat == -1) {
+            tvSunIntensity.text = "OFF"
+            return
+        }
+
+        if (procenat == -2) {
+            tvSunIntensity.text = "UNREACHABLE"
+            return
+        }
+
         val opis = when {
             procenat < 30 -> "Slabo sunce"
             procenat in 30..70 -> "Umereno sunce"
