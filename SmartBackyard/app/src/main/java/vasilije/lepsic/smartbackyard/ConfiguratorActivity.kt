@@ -153,6 +153,15 @@ class ConfiguratorActivity : AppCompatActivity() {
                                     soilMoisture = 5
                                 )
                             )
+
+                            lst.add(
+                                RowCommandEntry(
+                                    kultura.moistureMax,
+                                    kultura.moistureMin,
+                                    kultura.maxWateringDuration,
+                                    kultura.restingPeriod
+                                )
+                            )
                         }
                     }
                 }

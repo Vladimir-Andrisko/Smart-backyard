@@ -303,7 +303,7 @@ class ZonesActivity : AppCompatActivity() {
                                     try {
                                         db.backyardDao().insertOcitavanje(SenzorskoOcitavanjeEntity(0,
                                             System.currentTimeMillis(), row,
-                                            obj["Unit"] as String, humidity.toFloat()))
+                                            "humidity", humidity.toFloat()))
                                     } catch (_: Exception) {
                                     }
                                     addLog(
@@ -456,6 +456,12 @@ class ZonesActivity : AppCompatActivity() {
                     try {
                         val temperature = json.service["Temperature"] as Int
                         lifecycleScope.launch {
+                            db.temperatureDao().insertTemperatura(
+                                TemperaturaOcitavanjeEntity(
+                                    timestamp = System.currentTimeMillis(),
+                                    temperatura = temperature.toFloat()
+                                )
+                            )
                             db.globalStatusDao()
                                 .setAirTemperature(temperature)
                             addLog(

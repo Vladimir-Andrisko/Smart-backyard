@@ -14,9 +14,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RedBasteEntity::class,
         SenzorskoOcitavanjeEntity::class,
         RedBasteStatusEntity::class,
-        GlobalStatusEntity::class
+        GlobalStatusEntity::class,
+        TemperaturaOcitavanjeEntity::class
     ],
-    version = 14,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +25,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun logDao(): LogDao
     abstract fun backyardDao(): BackyardDao
     abstract fun globalStatusDao(): GlobalStatusDao
+
+    abstract fun temperatureDao(): TemperaturaOcitavanjeDAO
 
     companion object {
         @Volatile

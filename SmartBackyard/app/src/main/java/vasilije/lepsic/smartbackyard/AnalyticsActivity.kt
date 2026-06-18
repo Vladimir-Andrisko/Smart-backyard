@@ -9,6 +9,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Typeface
 import android.os.Bundle
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.widget.AdapterView
@@ -48,7 +49,6 @@ class AnalyticsActivity : AppCompatActivity() {
     private lateinit var tvDateTo: TextView
 
     private lateinit var chartPlaceholder: LinearLayout
-    private lateinit var cbShowTemperature: CheckBox
 
     private lateinit var panelNoDataState: LinearLayout
     private lateinit var tvNoDataDesc: TextView
@@ -64,11 +64,11 @@ class AnalyticsActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
 
         return when (trenutnoIzabraniPeriod) {
-            "24h" -> Pair(now - 24L * 60 * 60 * 1000, now)
+            "24h" -> Pair(now - 60L * 1000, now)
 
-            "7d" -> Pair(now - 7L * 24 * 60 * 60 * 1000, now)
+            "7d" -> Pair(now - 7L * 60 * 1000, now)
 
-            "30d" -> Pair(now - 30L * 24 * 60 * 60 * 1000, now)
+            "30d" -> Pair(now - 30L * 60 * 1000, now)
 
             "custom" -> {
                 try {
@@ -101,7 +101,6 @@ class AnalyticsActivity : AppCompatActivity() {
         tvDateFrom = findViewById(R.id.tvDateFrom)
         tvDateTo = findViewById(R.id.tvDateTo)
         chartPlaceholder = findViewById(R.id.chartPlaceholder)
-        cbShowTemperature = findViewById(R.id.cbShowTemperature)
         panelNoDataState = findViewById(R.id.panelNoDataState)
         tvNoDataDesc = findViewById(R.id.tvNoDataDesc)
 
@@ -145,8 +144,6 @@ class AnalyticsActivity : AppCompatActivity() {
             azurirajAktivniTaster(btnPeriodCustom, "custom")
             otvoriKalendarskiBiracOpsega()
         }
-
-        cbShowTemperature.setOnCheckedChangeListener { _, _ -> osveziGrafikonZaPeriodX() }
     }
 
     private fun azurirajAktivniTaster(aktivniButt: Button, periodKljuc: String) {
@@ -233,24 +230,13 @@ class AnalyticsActivity : AppCompatActivity() {
             val vlagaOcitavanja =
                 baza.backyardDao().getOcitavanjaZaPeriodX(
                     selektovaniRed.redId,
-                    "%",
-                    startTime,
-                    endTime
-                )
-
-            val temperaturaOcitavanja =
-                baza.backyardDao().getOcitavanjaZaPeriodX(
-                    selektovaniRed.redId,
-                    "temperature",
+                    "humidity",
                     startTime,
                     endTime
                 )
 
             val listaVlage =
                 vlagaOcitavanja.map { it.vrednost }
-
-            val listaTemp =
-                temperaturaOcitavanja.map { it.vrednost }
 
             withContext(Dispatchers.Main) {
 
@@ -275,7 +261,7 @@ class AnalyticsActivity : AppCompatActivity() {
                     moistureMin = moistureMin,
                     moistureMax = moistureMax,
                     listaVlage = listaVlage,
-                    listaTemp = listaTemp,
+                    listaTemp = emptyList(),
                     dogadjaji = emptyList()
                 )
             }
@@ -294,7 +280,7 @@ class AnalyticsActivity : AppCompatActivity() {
             this,
             listaVlage,
             listaTemp,
-            cbShowTemperature.isChecked,
+            false,
             moistureMin,
             moistureMax,
             dogadjaji
@@ -403,13 +389,13 @@ class AnalyticsActivity : AppCompatActivity() {
             canvas.drawText("MAX (${moistureMax.toInt()}%)", padding + 10f, yMax - 8f, paintTekstOkvira)
 
             // Ako su liste prazne, prekidamo crtanje samih krivih linija i kapljica
-            if (podaciVlage.isEmpty() || podaciTemp.isEmpty()) return
+            if (podaciVlage.isEmpty() /*|| podaciTemp.isEmpty()*/) return
 
             listaIscrtanihKapljica.clear()
 
-            if (prikaziTemperaturu) {
+            /*if (prikaziTemperaturu) {
                 nacrtajLinijuSerije(canvas, podaciTemp, 50f, sirina, visina, padding, paintTemp, logujKapljice = false)
-            }
+            }*/
 
             nacrtajLinijuSerije(canvas, podaciVlage, 100f, sirina, visina, padding, paintVlaga, logujKapljice = true)
         }
