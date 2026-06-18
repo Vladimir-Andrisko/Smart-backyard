@@ -86,6 +86,18 @@ object MQTTFactory {
         return createMessage(json.toString(), qos)
     }
 
+    fun createSetAutomaticMessage(
+        enabled: Boolean,
+        qos: Int
+    ): MqttMessage {
+        val json = JSONObject().apply {
+            put("command_type", "SET.automatic")
+            put("Control", if (enabled) "ON" else "OFF")
+        }
+
+        return createMessage(json.toString(), qos)
+    }
+
     // Parsiranje SET komande
     fun parseSetMessage(payload: String): SetCommand? {
         return try {

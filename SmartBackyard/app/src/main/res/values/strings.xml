@@ -199,4 +199,7 @@
     <string name="air_temp">Temperatura vazduha:</string>
 
     <string name="degree_format">%1$d °C</string>
+
+    <string name="btn_automatic_control_disable">Iskljuci automatsko upravljanje</string>
+    <string name="btn_automatic_control_enable">Ukljuci automatsko upravljanje</string>
 </resources>

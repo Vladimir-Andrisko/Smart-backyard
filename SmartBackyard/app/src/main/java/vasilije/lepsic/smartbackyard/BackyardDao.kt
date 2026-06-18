@@ -44,6 +44,9 @@ interface BackyardDao {
     @Query("DELETE FROM redovi_baste_status")
     suspend fun deleteAllRedoviStatus()
 
+    @Query("SELECT EXISTS(SELECT 1 FROM redovi_baste WHERE red_id = :id)")
+    suspend fun redExists(id: Int): Boolean
+
     @Query("UPDATE redovi_baste_status SET `open` = :isOpen WHERE red_id_ref = :id")
     suspend fun setRedStatus(id: Int, isOpen : Boolean)
 

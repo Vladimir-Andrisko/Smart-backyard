@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
 import org.eclipse.paho.client.mqttv3.MqttCallback
 import org.eclipse.paho.client.mqttv3.MqttMessage
+import org.json.JSONObject
 
 class ZonesActivity : AppCompatActivity() {
 
@@ -40,6 +41,9 @@ class ZonesActivity : AppCompatActivity() {
     private val getRequestDelay : Long = 1000
     private val rowSensorRegex = Regex("""uuid:(10|[1-9])::row_sensor""")
     private val rowActuatorRegex = Regex("""uuid:(10|[1-9])::row_actuator""")
+
+    private lateinit var btnAutomaticControl : Button
+    private var automaticControl = true
 
     @Volatile private var isUpdatingUI = false
 
@@ -156,8 +160,11 @@ class ZonesActivity : AppCompatActivity() {
         tvSunIntensity = findViewById(R.id.tvSunIntensity)
         tvRoofStatus = findViewById(R.id.tvRoofStatus)
         btnRoofAction = findViewById(R.id.btnRoofAction)
+        btnAutomaticControl = findViewById(R.id.btnAutomaticControl)
 
         btnBack.setOnClickListener { finish() }
+
+        btnAutomaticControl.setOnClickListener { toggleAutomaticControl() }
 
         // Globalna vlažnost vazduha: default 0% dok ne stigne MQTT
         azurirajGlobalnaVlaznostVazduha(0)
@@ -192,6 +199,141 @@ class ZonesActivity : AppCompatActivity() {
                 val json_all = MQTTFactory.parseGetMessage(String(message.payload, Charsets.UTF_8)) as GetAllCommand?
                 if (json_all != null) {
                     Log.d("JSON_ALL", json_all.toString())
+                    for (uuid_entry in json_all.uuid) {
+                        val obj = uuid_entry.value as JSONObject
+                        val state = obj["State"] ?: null
+                        val unreachable = state == null || state != "ON"
+                        val match_sensor = rowSensorRegex.matchEntire(uuid_entry.key)
+                        val match_actuator = rowActuatorRegex.matchEntire(uuid_entry.key)
+                        Log.d("TEST", uuid_entry.key)
+                        if (uuid_entry.key == "uuid:1::roof_actuator") {
+                            try {
+                                if (unreachable) {
+                                    lifecycleScope.launch {
+                                        db.globalStatusDao().setRoofStatus("UNINITIALIZED")
+                                        withContext(Dispatchers.Main) {
+                                            btnRoofAction.visibility = View.INVISIBLE
+                                        }
+                                    }
+                                    continue
+                                }
+
+                                lifecycleScope.launch {
+                                    val str = obj["Position"] as String
+                                    isRoofOpened = str == "OPEN"
+
+                                    db.globalStatusDao().setRoofStatus(str)
+                                    addLog(
+                                        AppDatabase.getInstance(this@ZonesActivity),
+                                        "KROV",
+                                        str
+                                    )
+
+                                    withContext(Dispatchers.Main) {
+                                        btnRoofAction.visibility = View.VISIBLE
+                                        updateKrov()
+                                    }
+                                }
+                            }
+                            catch(_ : java.lang.ClassCastException) {}
+                        }
+                        else if (uuid_entry.key == "uuid:1::humidity_sensor") {
+                            try {
+                                if (state == null || state != "ON")
+                                    continue
+
+                                val humidity = obj["Humidity"] as Int
+                                lifecycleScope.launch {
+                                    db.globalStatusDao().setHumidity(humidity)
+                                    addLog(
+                                        AppDatabase.getInstance(this@ZonesActivity),
+                                        "SENZOR",
+                                        state.toString()
+                                    )
+                                }
+                            }
+                            catch(_ : java.lang.ClassCastException) {}
+                        }
+                        else if (uuid_entry.key == "uuid:1::temperature_sensor") {
+                            try {
+                                if (state == null || state != "ON")
+                                    continue
+
+                                val temperature = obj["Temperature"] as Int
+                                lifecycleScope.launch {
+                                    db.globalStatusDao()
+                                        .setAirTemperature(temperature)
+                                    addLog(
+                                        AppDatabase.getInstance(this@ZonesActivity),
+                                        "SENZOR",
+                                        state.toString()
+                                    )
+                                }
+                            }
+                            catch(_ : java.lang.ClassCastException) {}
+                        }
+                        else if (uuid_entry.key == "uuid:1::light_sensor") {
+                            try {
+                                if (state == null || state != "ON")
+                                    continue
+
+                                val luminosity = obj["Intensity"] as Int
+                                lifecycleScope.launch {
+                                    db.globalStatusDao().setLuminosity(luminosity)
+                                    addLog(
+                                        AppDatabase.getInstance(this@ZonesActivity),
+                                        "KROV",
+                                        state.toString()
+                                    )
+                                }
+                            }
+                            catch(_ : java.lang.ClassCastException) {}
+                        } else if (match_sensor != null) {
+                            try {
+                                val row = match_sensor.groupValues[1].toInt()
+                                if (unreachable) {
+                                    setRowButtonEnabled(row, false)
+                                    continue
+                                }
+
+                                val humidity = obj["Humidity"] as Int
+
+                                lifecycleScope.launch {
+                                    db.backyardDao().setRedMoisture(row, humidity)
+                                    try {
+                                        db.backyardDao().insertOcitavanje(SenzorskoOcitavanjeEntity(0,
+                                            System.currentTimeMillis(), row,
+                                            obj["Unit"] as String, humidity.toFloat()))
+                                    } catch (_: Exception) {
+                                    }
+                                    addLog(
+                                        AppDatabase.getInstance(this@ZonesActivity),
+                                        "SENZOR",
+                                        state.toString()
+                                    )
+                                }
+                            } catch(e : Exception) {
+                                Log.d("Test", e.toString())
+                            }
+                        } else if (match_actuator != null) {
+                            val row = match_actuator.groupValues[1].toInt()
+                            if (unreachable) {
+                                setRowButtonEnabled(row, false)
+                                continue
+                            }
+                            val position = obj["Position"]
+
+                            lifecycleScope.launch {
+                                db.backyardDao().setRedStatus(row, position == "OPEN")
+
+                                withContext(Dispatchers.Main) {
+                                    setRowButtonEnabled(row, true)
+                                }
+                            }
+                        }
+                    }
+
+                    updateUI()
                     return
                 }
 
@@ -687,5 +829,11 @@ class ZonesActivity : AppCompatActivity() {
             btnRoofAction.text = "OTVORI KROV"
         }
         btnRoofAction.setBackgroundColor(Color.parseColor("#3498DB"))
+    }
+
+    private fun toggleAutomaticControl() {
+        automaticControl = !automaticControl
+        MQTTHandler.publish(MQTTHandler.publishTopic, MQTTFactory.createSetAutomaticMessage(automaticControl, MQTTHandler.automaticControlQOS))
+        btnAutomaticControl.text = getString(if (automaticControl) R.string.btn_automatic_control_disable else R.string.btn_automatic_control_enable)
     }
 }

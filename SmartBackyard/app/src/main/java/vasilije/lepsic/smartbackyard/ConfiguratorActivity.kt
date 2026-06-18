@@ -2,6 +2,7 @@ package vasilije.lepsic.smartbackyard
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -117,6 +118,7 @@ class ConfiguratorActivity : AppCompatActivity() {
                         if (kultura != null) {
                             baza.backyardDao().insertRedBaste(it)
                             val id = it.redId
+                            Log.d("TEST", "inserting status for id=$id")
                             baza.backyardDao().insertRedStatus(RedBasteStatusEntity(0, id, false, 5))
                             lst.add(
                                 RowCommandEntry(
