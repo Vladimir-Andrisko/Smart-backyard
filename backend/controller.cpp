@@ -375,7 +375,6 @@ void print_loop(){
 		}else{
 			cout << "AUTOMATIC CONTROL: OFF\n"; 
 		}
-
 		cout << "======================================================================================\n";
 		{
 			unique_lock<mutex> ul(deviceState_mutex);
@@ -383,19 +382,7 @@ void print_loop(){
 				cout << pair.first << ": " << pair.second << endl;
 			}
 		}
-		cout << "======================================================================================\n";
-		{
-			unique_lock<mutex> ul(rowControl_mutex);
-			for(auto &pair : row_control){
-				if(pair.second.watering){
-					cout << pair.first << ": " << "Valve OPEN" << endl;
-				}else{
-					cout << pair.first << ": " << "Valve CLOSED" << endl;
-				}
-			}
-		}
 		cout << "======================================================================================\n\n";
-
 		{
 			unique_lock<mutex> ul(sleepMutex_print);
 			sleepCv.wait_for(ul ,chrono::milliseconds(PRINT_REFRESH_RATE), [&](){
