@@ -47,6 +47,15 @@ class ZonesActivity : AppCompatActivity() {
 
     @Volatile private var isUpdatingUI = false
 
+    private val sensorStateMap = mutableMapOf<Int, Int>()
+    private val actuatorStateMap = mutableMapOf<Int, Int>()
+
+    companion object {
+        const val STATE_OK = 0
+        const val STATE_OFF = -1
+        const val STATE_UNREACHABLE = -2
+    }
+
     // -------------------------------------------------------------------------
     // Mapa kartica po redId-u, da ne moramo da rušimo i pravimo nove view-ove
     // svaki put kada se osvežava UI.
@@ -142,8 +151,44 @@ class ZonesActivity : AppCompatActivity() {
                             val red = redovi[i]
                             val redStatus = redoviStatus[i]
 
-                            azurirajStatusDugmetaNaKartici(red.redId, redStatus.open)
-                            azurirajVlaguZemljistaNaKartici(red.redId, redStatus.soilMoisture)
+                            val sensorState = sensorStateMap[red.redId]
+                            val actuatorState = actuatorStateMap[red.redId]
+
+
+                            if (sensorState == STATE_UNREACHABLE) {
+                                karticeMap[red.redId]?.tvVlaga?.text = "UNREACHABLE"
+                            }
+                            else if (sensorState == STATE_OFF) {
+                                karticeMap[red.redId]?.tvVlaga?.text = "OFF"
+                            }
+                            else {
+                                azurirajVlaguZemljistaNaKartici(
+                                    red.redId,
+                                    redStatus.soilMoisture
+                                )
+                            }
+
+
+                            if (actuatorState == STATE_UNREACHABLE) {
+                                karticeMap[red.redId]?.apply {
+                                    tvStatus.text = "UNREACHABLE"
+                                    btnZalij.text = "UNREACHABLE"
+                                    btnZalij.isEnabled = false
+                                }
+                            }
+                            else if (actuatorState == STATE_OFF) {
+                                karticeMap[red.redId]?.apply {
+                                    tvStatus.text = "OFF"
+                                    btnZalij.text = "OFF"
+                                    btnZalij.isEnabled = false
+                                }
+                            }
+                            else {
+                                azurirajStatusDugmetaNaKartici(
+                                    red.redId,
+                                    redStatus.open
+                                )
+                            }
                         }
                     }
                 }
@@ -336,14 +381,20 @@ class ZonesActivity : AppCompatActivity() {
                             try {
                                 val row = match_sensor.groupValues[1].toInt()
                                 if (unreachable) {
+                                    sensorStateMap[row] =
+                                        if (state == null || state == "UNREACHABLE")
+                                            STATE_UNREACHABLE
+                                        else
+                                            STATE_OFF
+
                                     lifecycleScope.launch {
-                                        db.backyardDao().setRedMoisture(row, if (state == null || state == "UNREACHABLE") -2 else -1)
                                         addLog(
-                                            AppDatabase.getInstance(this@ZonesActivity),
+                                            db,
                                             "SENZOR $row",
                                             state.toString()
                                         )
                                     }
+
                                     continue
                                 }
 
@@ -369,14 +420,20 @@ class ZonesActivity : AppCompatActivity() {
                         } else if (match_actuator != null) {
                             val row = match_actuator.groupValues[1].toInt()
                             if (unreachable) {
+                                actuatorStateMap[row] =
+                                    if (state == null || state == "UNREACHABLE")
+                                        STATE_UNREACHABLE
+                                    else
+                                        STATE_OFF
+
                                 lifecycleScope.launch {
-                                    db.backyardDao().setRedMoisture(row, if (state == null || state == "UNREACHABLE") -2 else -1)
                                     addLog(
-                                        AppDatabase.getInstance(this@ZonesActivity),
+                                        db,
                                         "AKTUATOR $row",
                                         state.toString()
                                     )
                                 }
+
                                 continue
                             }
                             val position = obj["Position"]
@@ -836,38 +893,27 @@ class ZonesActivity : AppCompatActivity() {
      * Postavlja izgled (tekst i boje) statusa ventila i dugmeta za dati red,
      * bez ikakvog pristupa bazi.
      */
-    private fun primeniStatusVentila(redId: Int, zalivanjAktivno: Boolean) {
+    private fun primeniStatusVentila(
+        redId: Int,
+        zalivanjeAktivno: Boolean
+    ) {
         val kartica = karticeMap[redId] ?: return
-        lifecycleScope.launch {
-            val db = AppDatabase.getInstance(this@ZonesActivity)
-            val status = db.backyardDao().getRedStatusByRedId(redId)
-            withContext(Dispatchers.Main) {
-                if (status != null && status.soilMoisture == -2) {
-                    kartica.tvStatus.text = "UNREACHABLE"
-                    kartica.btnZalij.text = "UNREACHABLE"
-                    kartica.tvVlaga.text = "UNREACHABLE"
-                    kartica.btnZalij.isEnabled = false
-                    return@withContext
-                }
-                else if (status != null && status.soilMoisture == -1) {
-                    kartica.tvStatus.text = "OFF"
-                    kartica.btnZalij.text = "OFF"
-                    kartica.tvVlaga.text = "OFF"
-                    return@withContext
-                }
-                if (zalivanjAktivno) {
-                    kartica.tvStatus.text = "● AKTIVNO"
-                    kartica.tvStatus.setTextColor(Color.parseColor("#2ECC71"))
-                    kartica.btnZalij.text = "PRESTANI"
-                    kartica.btnZalij.setBackgroundColor(Color.parseColor("#E74C3C"))
-                } else {
-                    kartica.tvStatus.text = "● ZATVOREN"
-                    kartica.tvStatus.setTextColor(Color.parseColor("#E74C3C"))
-                    kartica.btnZalij.text = "ZALIJ"
-                    kartica.btnZalij.setBackgroundColor(Color.parseColor("#3498DB"))
-                }
-            }
+
+        if (zalivanjeAktivno) {
+            kartica.tvStatus.text = "● AKTIVNO"
+            kartica.tvStatus.setTextColor(Color.parseColor("#2ECC71"))
+            kartica.btnZalij.text = "PRESTANI"
+            kartica.btnZalij.setBackgroundColor(Color.parseColor("#E74C3C"))
         }
+        else {
+            kartica.tvStatus.text = "● ZATVOREN"
+            kartica.tvStatus.setTextColor(Color.parseColor("#E74C3C"))
+            kartica.btnZalij.text = "ZALIJ"
+            kartica.btnZalij.setBackgroundColor(Color.parseColor("#3498DB"))
+        }
+
+        kartica.btnZalij.isEnabled = true
+        kartica.btnZalij.alpha = 1f
     }
 
     private fun posaljiKrovuMqttKomandu() {
